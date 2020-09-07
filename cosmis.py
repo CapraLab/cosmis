@@ -4,7 +4,7 @@
 To add a brief summary of this script.
 """
 
-import sys, os, csv
+import os, csv
 import gzip
 import json
 import logging
@@ -15,7 +15,7 @@ from argparse import ArgumentParser
 from pdb_struct.contact import Contact
 from mapping.sifts import SIFTS
 from utils import pdb_utils
-from mtr3d.utils.genetic_code import GENETIC_CODE
+from utils.genetic_code import GENETIC_CODE
 from mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
 from Bio import SeqIO
 from Bio.SeqUtils import seq1
