@@ -680,10 +680,7 @@ def main():
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    cosmis.append(id_fields + [i, a] + [np.nan] * 7)
-                    # contact_stats.append(
-                    #    (transcript, ensp_id, pdb_id, pdb_chain, i, np.nan)
-                    # )
+                    cosmis.append(id_fields + [i, a] + [np.nan] * 10)
                     continue
                     
                 # check that the amino acid in ENSP sequence matches 
@@ -693,17 +690,17 @@ def main():
                     logging.critical(
                         'Residue in %s and %s of %s did not match that in PDB %s '
                         'chain %s at %s: %s vs %s',
-                        uniprot_id, ensp_id, transcript, pdb_id, pdb_chain, i, a, pdb_aa
+                        uniprot_id, ensp_id, transcript, pdb_id, pdb_chain, i, 
+                        a, pdb_aa
                     )
                     logging.critical(
                         'Please first check UniProt sequence is identical to ENSP '
                         'sequence. If this is true, check if there is any oddity '
                         'in the SIFTS residue-level mapping.'
                     )
-                    cosmis.append(id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 5)
-                    # contact_stats.append(
-                    #    (transcript, ensp_id, pdb_id, pdb_chain, i, np.nan)
-                    # )
+                    cosmis.append(
+                        id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 8
+                    )
                     continue
                     # sys.exit(1)
 
@@ -801,10 +798,10 @@ def main():
 
             with open(file=cosmis_file, mode='wt') as opf:
                 header = [
-                    'TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 'ENSP_AA', 
-                    'PDB_POS', 'PDB_AA', 'SEQ_SEPARATION', 'CONTACTS', 'PDB', 
-                    'CHAIN', 'SYNONYMOUS_RATE', 'SYNONYMOUS_COUNT', 
-                    'MISSENSE_RATE', 'MISSENSE_COUNT'
+                    'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
+                    'pdb_pos', 'pdb_aa', 'seq_separation', 'num_contacts', 
+                    'pdb_id', 'chain_id', 'synonymous_rate', 'synonymous_count', 
+                    'missense_rate', 'missense_count'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
