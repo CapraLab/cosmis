@@ -1,5 +1,9 @@
 #!/usr/bin/env python3
 
+"""
+To add a brief summary of this script.
+"""
+
 import sys, os, csv
 import gzip
 import json
@@ -216,46 +220,56 @@ def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
 
 def parse_cmd():
     """
+    Parses command-line arguments.
 
     Returns
     -------
+    ArgumentParser
+    An object of type ArgumentParger containing parsed command-line arguments.
 
     """
     parser = ArgumentParser()
-    # parser.add_argument('-a', '--aa-seq', dest='aa_sequence', type=str, required=True,
-    #                     help='FASTA file representing the UniProt canonical '
-    #                          'amino acid sequence of the protein')
-    # parser.add_argument('-n', '--non', dest='nonsynonymous', type=str, required=True,
-    #                     help='A tab-delimited file in which each row specifies a'
-    #                          'position-specific count of nonsynonymous variants')
-    # parser.add_argument('-s', '--syn', dest='synonymous', type=str, required=True,
-    #                     help='A tab-delimited file in which each row specifies a '
-    #                          'position-specific count of synonymous variants.')
-    parser.add_argument('-c', '--config', dest='config', required=True,
-                        type=str, help='A JSON file specifying options.')
-    parser.add_argument('-t', '--transcripts', dest='transcripts', type=str,
-                        required=True, help='A list of ENSEMBL transcript IDs, '
-                        'one per line.')
-    parser.add_argument('-r', '--radius', dest='radius', type=float, default=8,
-                        help='Radius within which to include sites.')
-    parser.add_argument('-o', '--output', dest='output', required=False,
-                        type=str, help='Output file to which site-specific MTR '
-                        'values will be written.')
-    parser.add_argument('-p', '--pdb', dest='pdb', type=str, required=False,
-                        help='PDB file representing the 3D structure of the '
-                             'protein')
-    parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
-                        action='store_true', help='Whether to overwrite already '
-                        'computed MTR3D scores.')
-    parser.add_argument('--mtr1d', dest='mtr1d', required=False, default=False,
-                        action='store_true', help='If specified, computeds MTR '
-                        'score implemented according to Traynelis et al., Genome '
-                        'Research, 2017')
-    parser.add_argument('-v', '--verbose', dest='verbose', required=False,
-                        action='store_true', help='Whether to output verbose '
-                        'data: number of contacting residues and number of '
-                        'missense and synonymous variants in the neighborhood'
-                        'of the mutation site.')
+    parser.add_argument(
+        '-c', '--config', dest='config', required=True, type=str, 
+        help='''A JSON file specifying options.'''
+    )
+    parser.add_argument(
+        '-t', '--transcripts', dest='transcripts', type=str, required=True, 
+        help='''A list of ENSEMBL transcript IDs, one per line.'''
+    )
+    parser.add_argument(
+        '-r', '--radius', dest='radius', type=float, default=8,
+        help='''Radius within which to include sites.'''
+    )
+    parser.add_argument(
+        '-o', '--output', dest='output', required=False, type=str, 
+        help='''Output file to which site-specific COSMIS values will be 
+        written.'''
+    )
+    parser.add_argument(
+        '-p', '--pdb', dest='pdb', type=str, required=False, 
+        help='''PDB file representing the 3D structure of the protein.'''
+    )
+    parser.add_argument(
+        '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
+        help='''Whether to overwrite already computed COSMIS scores.'''
+    )
+    parser.add_argument(
+        '--mtr1d', dest='mtr1d', required=False, default=False, action='store_true', 
+        help='''If specified, computes COSMIS scores (a.k.a. MTR) implemented 
+        according to Traynelis et al., Genome Research, 2017.'''
+    )
+    parser.add_argument(
+        '-v', '--verbose', dest='verbose', required=False, action='store_true', 
+        help='''Whether to output verbose data: number of contacting residues 
+        and number of missense and synonymous variants in the neighborhood of 
+        the mutation site.'''
+    )
+    parser.add_argument(
+        '-l', '--log', dest='log', default='cosmis.log',
+        help='''The file to which to write detailed computing logs.'''    
+    )
+                    
     return parser.parse_args()
 
 
@@ -401,45 +415,45 @@ def count_variants(variants):
 
 
 def main():
-    """
-
-    Returns
-    -------
-
-    """
+    # parse command-line arguments
+    args = parse_cmd()
+    
     # configure the logging system
     logging.basicConfig(
-        filename='mtr3d.log',
+        filename=args.log,
         level=logging.INFO,
         filemode='w',
         format='%(levelname)s:%(asctime)s:%(message)s'
     )
-
-    # parse command-line arguments
-    args = parse_cmd()
 
     # parse configuration file
     configs = parse_config(args.config)
     logging.info('Supplied configuration:')
     logging.info(json.dumps(configs, sort_keys=True, indent=4))
 
-    # ENSEMBL cds
+    # reading ENSEMBL cds
     print('Reading ENSEMBL CDS database ...')
     with gzip.open(configs['ensembl_cds'], 'rt') as cds_handle:
-        ensembl_cds_dict = SeqIO.to_dict(SeqIO.parse(cds_handle, format='fasta'),
-                                 key_function=get_ensembl_accession)
+        ensembl_cds_dict = SeqIO.to_dict(
+            SeqIO.parse(cds_handle, format='fasta'),
+            key_function=get_ensembl_accession
+        )
 
     # CCDS concensus coding sequences
     print('Reading NCBI CCDS database ...')
     with gzip.open(configs['ccds_cds'], 'rt') as ccds_handle:
-        ccds_dict = SeqIO.to_dict(SeqIO.parse(ccds_handle, format='fasta'),
-                                 key_function=get_ccds_accession)
+        ccds_dict = SeqIO.to_dict(
+            SeqIO.parse(ccds_handle, format='fasta'),
+            key_function=get_ccds_accession
+        )
 
     # ENSEMBL peptide sequences
     print('Reading ENSEMBL protein sequence database ...')
     with gzip.open(configs['ensembl_pep'], 'rt') as pep_handle:
-        pep_dict = SeqIO.to_dict(SeqIO.parse(pep_handle, format='fasta'),
-                                 key_function=get_ensembl_accession)
+        pep_dict = SeqIO.to_dict(
+            SeqIO.parse(pep_handle, format='fasta'),
+            key_function=get_ensembl_accession
+        )
 
     # parse gnomad transcript-level variants
     print('Reading gnomAD variant database ...')
@@ -450,33 +464,34 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
-    # parse UniProt to PDB chain mapping
-    # with open(configs['uniprot_to_pdb'], 'rt') as ipf:
-    #    uniprot_to_pdb = dict([l.strip().split() for l in ipf])
-
+    # parse the file that maps Ensembl transcript IDs to PDB IDs 
     with open(configs['enst_to_pdb'], 'rt') as ipf:
         enst_to_pdb = json.load(ipf)
 
+    # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
 
     # create SIFTS mapping table
     sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'])
 
+    # set output file suffix
     if args.mtr1d:
         suffix = '_mtr1ds.tsv'
     else:
-        suffix = '_mtr3ds.tsv'
+        suffix = '_cosmis.tsv'
 
-    # compute the MRT scores for each transcript
+    # compute the COSMIS scores for each transcript
     with open(args.transcripts, 'rt') as ipf:
         for transcript in ipf:
             transcript = transcript.strip()
             print('Processing transcript %s' % transcript)
-            mtr3ds = []
-            contact_stats = []
-            if os.path.exists(os.path.join(output_dir, transcript + suffix)) and not args.overwrite:
+            cosmis = []
+            cosmis_file = os.path.join(output_dir, transcript + suffix)
+            # skip if it was already computed and overwrite not requested
+            if os.path.exists(cosmis_file) and not args.overwrite:
                 print('Scores for %s already exist, skipped.' % transcript)
                 continue
+            
             # get the amino acid sequence of the transcript
             try:
                 ensp_id = transcript_variants[transcript]['ensp'][0]
@@ -484,7 +499,7 @@ def main():
                 logging.critical(
                     'Transcript %s not found in %s',
                     transcript, configs['gnomad_variants']
-            )
+                )
                 continue
 
             transcript_pep = get_transcript_pep_seq(
@@ -495,14 +510,19 @@ def main():
             uniprot_ids = transcript_variants[transcript]['swissprot']
             if len(uniprot_ids) > 1:
                 logging.critical(
-                    'More than one UniProt IDs found for transcript %s: %s',
-                    transcript, ','.join(uniprot_ids)
+                    'ERROR: more than one UniProt IDs found for transcript ' 
+                    '%s: %s',transcript, ','.join(uniprot_ids)
                 )
-                sys.exit(1)
+                continue
+            
+            # get the UniProt ID
             uniprot_id = uniprot_ids[0]
 
             if transcript_pep is None:
-                print('No peptide sequence found for %s' % transcript)
+                logging.critical(
+                    'No peptide sequence found for %s in %s' % 
+                    (transcript, configs['ensembl_pep']) 
+                )
 
                 # fall back to UniProt sequence
                 uniprot_pep = get_uniprot_aa_seq(uniprot_id)
@@ -515,7 +535,9 @@ def main():
             try:
                 variants = transcript_variants[transcript]['variants']
             except KeyError:
-                logging.critical('No variants found in %s in gnomAD', transcript)
+                logging.critical(
+                    'No variants found in %s in gnomAD', transcript
+                )
                 logging.critical('%s was skipped ...', transcript)
                 continue
 
@@ -526,8 +548,10 @@ def main():
             try:
                 transcript_cds = ensembl_cds_dict[transcript].seq
             except KeyError:
-                print('No CDS found in Ensembl CDS database! Looking for it '
-                      'in the CCDS database ...')
+                logging.critical(
+                    'No CDS found in Ensembl CDS database! Looking for it '
+                    'in the CCDS database ...'                    
+                )
                 transcript_cds = None
 
             if transcript_cds is None:
@@ -535,17 +559,21 @@ def main():
                     ccds_id = transcript_variants[transcript]['ccds'][0]
                     transcript_cds = ccds_dict[ccds_id].seq
                 except KeyError:
-                    print('No CDS found in CCDS database! Skipped.')
+                    logging.critical(
+                        'No CDS found in CCDS database! Skipped.'
+                    )
                     continue
 
             # skip if the CDS is incomplete
             if len(transcript_cds) / 3 != len(transcript_pep) + 1:
-                print('Incomplete CDS for', transcript, '. Skipped.')
+                logging.critical(
+                    'Incomplete CDS for', transcript, '. Skipped.'
+                )
                 continue
 
             # check that the CDS does not contain invalid nucleotides
             if any([x not in {'A', 'T', 'C', 'G'} for x in set(transcript_cds)]):
-                print('Invalid CDS! Skipped.')
+                logging.critical('Invalid CDS! Skipped.')
                 print(transcript_cds)
                 continue
 
@@ -554,17 +582,29 @@ def main():
 
             # only compute MTR1D scores if asked on the command-line
             if args.mtr1d:
+                """
+                @TODO to set the number of expected counts here
+                """
+                expected_counts = None
                 for i, a in enumerate(transcript_pep, start=1):
-                    mtr3ds.append([transcript, ensp_id, uniprot_id, i, a] +
-                        list(compute_mtr1d(i, missense_counts, synonymous_counts,
-                                      expected_counts, window=31))
+                    cosmis.append(
+                        [transcript, ensp_id, uniprot_id, i, a] +
+                        list(
+                            compute_mtr1d(
+                                i, missense_counts, synonymous_counts,
+                                expected_counts, window=31
+                            )
                         )
-                with open(file=os.path.join(output_dir, transcript + suffix), mode='wt') as opf:
-                    header = ['TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 'ENSP_AA',
-                    'MISSENSE', 'SYNONYMOUS', 'MTR1D']
+                    )
+                    
+                with open(cosmis_file, mode='wt') as opf:
+                    header = [
+                        'TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 
+                        'ENSP_AA', 'MISSENSE', 'SYNONYMOUS', 'MTR1D'
+                    ]
                     csv_writer = csv.writer(opf, delimiter='\t')
                     csv_writer.writerow(header)
-                    csv_writer.writerows(mtr3ds)
+                    csv_writer.writerows(cosmis)
                 print('Finished calcualting MTR1D scores for %s!' % transcript)
                 continue
 
@@ -583,8 +623,10 @@ def main():
                 continue
 
             # print message
-            print('Estimating MRT3D scores for:', transcript, ensp_id,
-                  uniprot_id, pdb_id, pdb_chain)
+            print(
+                'Estimating COSMIS scores for:', transcript, ensp_id,
+                 uniprot_id, pdb_id, pdb_chain
+            )
 
             chain = pdb_utils.get_pdb_chain(
                 pdb_id, pdb_chain, configs['pdb_dir']
@@ -593,9 +635,12 @@ def main():
             if chain is None:
                 print('No chain was available for %s' % transcript)
                 continue
-
+            
+            # get all contact pairs in the PDB structure
             all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-            all_contacts = search_for_all_contacts(all_aa_residues, radius=args.radius)
+            all_contacts = search_for_all_contacts(
+                all_aa_residues, radius=args.radius
+            )
 
             # index all contacts by residue ID
             indexed_contacts = defaultdict(list)
@@ -603,7 +648,8 @@ def main():
                 indexed_contacts[c.get_res_a()].append(c.get_res_b())
                 indexed_contacts[c.get_res_b()].append(c.get_res_a())
 
-
+            # one-to-one mapping between UniProt residues and PDB residues
+            # used later in determining count of variants in contact set
             uniprot_to_pdb_mapping = sifts_residue_mapping.uniprot_to_pdb(
                 uniprot_id, pdb_id, pdb_chain
             )
@@ -612,10 +658,10 @@ def main():
             )
 
             if uniprot_to_pdb_mapping is None or pdb_to_uniprot_mapping is None:
-                print('Mapping between UniProt and PDB failed!')
+                print('Mapping between UniProt and PDB failed! Skipped!')
                 continue
 
-            # 
+            # row identifier for each COSMIS score record
             id_fields = [transcript, ensp_id, uniprot_id]
             
             for i, a in enumerate(transcript_pep, start=1):
@@ -634,7 +680,7 @@ def main():
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    mtr3ds.append(id_fields + [i, a] + [np.nan] * 7)
+                    cosmis.append(id_fields + [i, a] + [np.nan] * 7)
                     # contact_stats.append(
                     #    (transcript, ensp_id, pdb_id, pdb_chain, i, np.nan)
                     # )
@@ -654,7 +700,7 @@ def main():
                         'sequence. If this is true, check if there is any oddity '
                         'in the SIFTS residue-level mapping.'
                     )
-                    mtr3ds.append(id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 5)
+                    cosmis.append(id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 5)
                     # contact_stats.append(
                     #    (transcript, ensp_id, pdb_id, pdb_chain, i, np.nan)
                     # )
@@ -716,9 +762,19 @@ def main():
                             break
 
                     # compute the fraction of expected missense variants
-                    mtr3ds.append(id_fields + [i, a, pdb_pos, pdb_aa] + [pdb_id, pdb_chain] + 
-                        [seq_seps, num_contacts, total_synonymous_rate, total_synonymous_obs,
-                         total_missense_rate, total_missense_obs])
+                    cosmis.append(
+                        id_fields + 
+                        [i, a, pdb_pos, pdb_aa] + 
+                        [pdb_id, pdb_chain] + 
+                        [
+                            seq_seps, 
+                            num_contacts, 
+                            total_synonymous_rate, 
+                            total_synonymous_obs, 
+                            total_missense_rate, 
+                            total_missense_obs
+                        ]
+                    )
                 else:
                     logging.critical(
                         'No contacts were found in the neighborhood of '
@@ -729,17 +785,30 @@ def main():
                     logging.critical(
                         'The MTR score for this position was set to 1.0'
                     )
-                    mtr3ds.append(id_fields + [i, a, pdb_pos, pdb_aa] + [pdb_id, pdb_chain] +
-                                  [seq_seps, num_contacts, total_synonymous_rate, total_synonymous_obs,
-                                   total_missense_rate, total_missense_obs])
+                    cosmis.append(
+                        id_fields + 
+                        [i, a, pdb_pos, pdb_aa] + 
+                        [pdb_id, pdb_chain] +
+                        [
+                            seq_seps, 
+                            num_contacts, 
+                            total_synonymous_rate, 
+                            total_synonymous_obs,
+                            total_missense_rate, 
+                            total_missense_obs
+                        ]
+                    )
 
-            with open(file=os.path.join(output_dir, transcript + '_mtr3ds.tsv'), mode='wt') as opf:
-                header = ['TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 'ENSP_AA', 
-                        'PDB_POS', 'PDB_AA', 'SEQ_SEPARATION', 'CONTACTS', 'PDB', 'CHAIN',
-                    'SYNONYMOUS_RATE', 'SYNONYMOUS_COUNT', 'MISSENSE_RATE', 'MISSENSE_COUNT']
+            with open(file=cosmis_file, mode='wt') as opf:
+                header = [
+                    'TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 'ENSP_AA', 
+                    'PDB_POS', 'PDB_AA', 'SEQ_SEPARATION', 'CONTACTS', 'PDB', 
+                    'CHAIN', 'SYNONYMOUS_RATE', 'SYNONYMOUS_COUNT', 
+                    'MISSENSE_RATE', 'MISSENSE_COUNT'
+                ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
-                csv_writer.writerows(mtr3ds)
+                csv_writer.writerows(cosmis)
 
 
 if __name__ == '__main__':
