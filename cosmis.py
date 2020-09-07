@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-import sys, os, re, csv
+import sys, os, csv
 import gzip
 import json
 import logging
@@ -8,15 +8,14 @@ import urllib
 import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
-from mtr3d.struct.contact import Contact, BACKBONE_ATOMS
-from mtr3d.mapping.sifts import SIFTS
-from mtr3d.mapping.ensembl_uniprot_pdb import EnsemblUniProtPDB
-from mtr3d.utils import pdb_utils
+from pdb_struct.contact import Contact
+from mapping.sifts import SIFTS
+from utils import pdb_utils
 from mtr3d.utils.genetic_code import GENETIC_CODE
+from mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
 from Bio import SeqIO
 from Bio.SeqUtils import seq1
-from Bio.PDB import PDBParser, NeighborSearch, is_aa, PDBList
-from mtr3d.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
+from Bio.PDB import NeighborSearch, is_aa
 
 from Bio import BiopythonWarning
 import warnings
