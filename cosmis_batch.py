@@ -123,8 +123,13 @@ def search_for_all_contacts(residues, radius=6):
                 print('No CA atom found for GLY:', r, 'skipped ...')
                 continue
         else:
-            atom_list += [a for a in r.get_atoms() if a.get_name() 
-                          not in BACKBONE_ATOMS]
+            try:
+                atom_list.append(r['CB'])
+            except KeyError:
+                print('No CB atom found for:', r.get_resname(), 'skipped ...')
+                continue
+            # atom_list += [a for a in r.get_atoms() if a.get_name() 
+            #               not in BACKBONE_ATOMS]
         # atom_list += [a for a in r.get_atoms()]
     ns = NeighborSearch(atom_list)
     all_contacts = [Contact(res_a=c[0], res_b=c[1]) for c in ns.search_all(radius, level='R')]
@@ -467,7 +472,7 @@ def main():
             continue
 
         all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-        all_contacts = search_for_all_contacts(all_aa_residues, radius=6)
+        all_contacts = search_for_all_contacts(all_aa_residues, radius=8)
         
         # calculate expected counts for each codon
         codon_mutation_rates = get_codon_mutation_rates(transcript_cds)
