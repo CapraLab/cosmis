@@ -8,13 +8,13 @@
 
 """
 
-import os, sys
+import os
 import json
 import gzip
 from argparse import ArgumentParser
 from Bio.Seq import Seq
 from Bio.Alphabet import ProteinAlphabet
-from Bio.PDB import PDBParser, PDBList, PPBuilder
+from Bio.PDB import PDBParser, PPBuilder
 
 
 def parse_cmd():
@@ -107,12 +107,6 @@ def get_resolution(pdb_id=None):
 
 
 def main():
-    """
-
-    Returns
-    -------
-
-    """
     # parse command-line arguments
     args = parse_cmd()
 
