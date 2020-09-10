@@ -12,11 +12,11 @@ import urllib
 import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
-from pdb_struct.contact import Contact
-from mapping.sifts import SIFTS
-from utils import pdb_utils
-from utils.genetic_code import GENETIC_CODE
-from mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
+from cosmis.pdb_struct.contact import Contact
+from cosmis.mapping.sifts import SIFTS
+from cosmis.utils import pdb_utils
+from cosmis.utils.genetic_code import GENETIC_CODE
+from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
 from Bio import SeqIO
 from Bio.SeqUtils import seq1
 from Bio.PDB import NeighborSearch, is_aa

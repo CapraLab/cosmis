@@ -3,8 +3,8 @@
 import os
 import pandas as pd
 import urllib
-from mapping.sifts import SIFTS
-from utils import pdb_utils
+from cosmis.mapping.sifts import SIFTS
+from cosmis.utils import pdb_utils
 
 
 SIFTS_ENSEMBL_URL = 'ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/' \

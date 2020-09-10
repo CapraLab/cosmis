@@ -11,7 +11,7 @@ import csv
 import sys
 from Bio import SeqIO
 from argparse import ArgumentParser
-from mapping.ensembl_uniprot_pdb import SIFTS
+from cosmis.mapping.ensembl_uniprot_pdb import SIFTS
 
 
 def parse_cmd_args():
