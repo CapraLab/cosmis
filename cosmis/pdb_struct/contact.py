@@ -139,7 +139,8 @@ class Contact:
         Returns
         -------
         float
-            The distance between the side-chain centroids of the contacting residues.
+            The distance between the side-chain centroids of the contacting
+            residues.
         """
         centroid_a = self.get_sidechain_centroid(self._res_a)
         centroid_b = self.get_sidechain_centroid(self._res_b)
@@ -197,5 +198,5 @@ class Contact:
         bool
             True if the contact is global.
         """
-        return not sel.is_local()
+        return not self.is_local()
 
