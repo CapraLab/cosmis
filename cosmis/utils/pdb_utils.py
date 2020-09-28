@@ -10,9 +10,10 @@
 
 import os
 from Bio.Seq import Seq
-from Bio.Alphabet import ProteinAlphabet
 from Bio.PDB import PDBParser, PDBList, PPBuilder
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+from Bio.PDB import NeighborSearch
+from cosmis.pdb_struct.contact import Contact
 
 
 def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None):
@@ -131,3 +132,41 @@ def get_resolution(pdb_id, pdb_path=None):
     except (ValueError, TypeError):
         return None
 
+
+def search_for_all_contacts(residues, radius=8):
+    """
+    Search for all contacts in the given set of residues based on
+    distances between CB atoms.
+
+    Parameters
+    ----------
+    residues
+    radius
+
+    Returns
+    -------
+
+    """
+    atom_list = []
+    for r in residues:
+        if r.get_resname() == 'GLY':
+            try:
+                atom_list.append(r['CA'])
+            except KeyError:
+                print('No CA atom found for GLY:', r, 'skipped ...')
+                continue
+        else:
+            try:
+                atom_list.append(r['CB'])
+            except KeyError:
+                print('No CB atom found for:', r.get_resname(), 'skipped ...')
+                continue
+            # atom_list += [a for a in r.get_atoms() if a.get_name()
+            #               not in BACKBONE_ATOMS]
+        # atom_list += [a for a in r.get_atoms()]
+    ns = NeighborSearch(atom_list)
+    all_contacts = [
+        Contact(res_a=c[0], res_b=c[1])
+        for c in ns.search_all(radius, level='R')
+    ]
+    return all_contacts
