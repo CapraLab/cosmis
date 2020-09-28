@@ -141,7 +141,10 @@ def search_for_all_contacts(residues, radius=8):
             #               not in BACKBONE_ATOMS]
         # atom_list += [a for a in r.get_atoms()]
     ns = NeighborSearch(atom_list)
-    all_contacts = [Contact(res_a=c[0], res_b=c[1]) for c in ns.search_all(radius, level='R')]
+    all_contacts = [
+        Contact(res_a=c[0], res_b=c[1]) 
+        for c in ns.search_all(radius, level='R')
+    ]
     return all_contacts
 
 
@@ -211,7 +214,8 @@ def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
                 total_ns_exp += expected_counts[i - 1][0]
                 total_syn_exp += expected_counts[i - 1][1]
     try:
-        mtr1d = (total_ns_obs / (total_ns_obs + total_syn_obs)) / (total_ns_exp / (total_ns_exp + total_syn_exp))
+        mtr1d = (total_ns_obs / (total_ns_obs + total_syn_obs)) / \
+            (total_ns_exp / (total_ns_exp + total_syn_exp))
     except ZeroDivisionError:
         mtr1d = 0
 

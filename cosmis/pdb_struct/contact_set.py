@@ -1,11 +1,55 @@
-from mtr3d.mutation_rates.trinucleotide_context_rates import MUTATION_RATES
-from mtr3d.utils.genetic_code import GENETIC_CODE
+from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES
+from cosmis.utils.genetic_code import GENETIC_CODE
+from cosmis.mapping import ensembl_uniprot_pdb
 
 
 class ContactSet:
     """
 
     """
+    def __init__(self, central_res, contact_res):
+        """
+
+        Parameters
+        ----------
+        central_res : Residue
+            The central amino acid residue of the contact set.
+        contact_res : list
+            A list of residues that are in contact with the central residue.
+        """
+        self.central_res = central_res
+        self.contact_res = contact_res
+
+    def get_size(self):
+        """
+        Get the size of the contact set (number of residues).
+
+        Returns
+        -------
+        int
+            Number of residues in the contact set.
+        """
+        return len(self.contact_res) + 1
+
+    def get_codons(self, enst_id):
+        """
+
+        Parameters
+        ----------
+        enst_id : str
+            Ensembl transcript for the nucleotide sequence encoding this
+            protein.
+
+        Returns
+        -------
+        list
+            A list containing the codons for each of the amino acid in the
+            contact set.
+
+        """
+        # get the coding nucleotide sequence
+        transcript_id =
+
     def __init__(self, cds, codon_ids, transcript_id):
         """
 
