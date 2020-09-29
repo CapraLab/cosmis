@@ -153,3 +153,77 @@ def get_codon_mutation_rates(cds):
 
         mutation_rates.append((synonymous_rate, nonsynonymous_rate))
     return mutation_rates
+
+
+def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
+    """
+
+    Parameters
+    ----------
+    pos : int
+        Sequence position.
+    ns_counts : dict
+
+    syn_counts : dict
+
+    expected_counts : list
+
+    window : int
+        Window size.
+
+    Returns
+    -------
+    float
+
+
+    """
+    total_ns_obs = 0
+    total_syn_obs = 0
+    total_ns_exp = 0
+    total_syn_exp = 0
+    # handle the special case of the first 15 residues
+    if pos < 16:
+        for i in range(31):
+            try:
+                total_ns_obs += ns_counts[i]
+            except KeyError:
+                total_ns_obs += 0
+            try:
+                total_syn_obs += syn_counts[i]
+            except KeyError:
+                total_syn_obs += 0
+            total_ns_exp += expected_counts[i][0]
+            total_syn_exp += expected_counts[i][1]
+    # handle the special case of the last 15 residues
+    elif pos > len(expected_counts) - 15:
+        for i in range(len(expected_counts) - 31, len(expected_counts)):
+            try:
+                total_ns_obs += ns_counts[i]
+            except KeyError:
+                total_ns_obs += 0
+            try:
+                total_syn_obs += syn_counts[i]
+            except KeyError:
+                total_syn_obs += 0
+            total_ns_exp += expected_counts[i][0]
+            total_syn_exp += expected_counts[i][1]
+    else:
+        for i in range(pos - window // 2, pos + window // 2 + 1):
+            try:
+                total_ns_obs += ns_counts[i]
+            except KeyError:
+                total_ns_obs += 0
+            try:
+                total_syn_obs += syn_counts[i]
+            except KeyError:
+                total_syn_obs += 0
+            if i > 1 or i < len(expected_counts):
+                total_ns_exp += expected_counts[i - 1][0]
+                total_syn_exp += expected_counts[i - 1][1]
+    try:
+        mtr1d = (total_ns_obs / (total_ns_obs + total_syn_obs)) / \
+            (total_ns_exp / (total_ns_exp + total_syn_exp))
+    except ZeroDivisionError:
+        mtr1d = 0
+
+    return total_ns_obs, total_syn_obs, mtr1d
