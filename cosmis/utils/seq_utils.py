@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from cosmis.utils.genetic_code import GENETIC_CODE
+from cosmis.mutation_rates.trinucleotide_context_rates import  MUTATION_RATES_UNIQUE
+
 
 def place_holder():
     """
@@ -227,3 +229,72 @@ def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
         mtr1d = 0
 
     return total_ns_obs, total_syn_obs, mtr1d
+
+
+def get_codon_seq_context(codon_nums, cds):
+    """
+
+    Parameters
+    ----------
+    codon_nums : list/int
+        A list of ints, each represents a codon number.
+    cds : str
+        Coding sequence
+
+    Returns
+    -------
+    str
+        The sequence context of codons concatenated into a string.
+
+    """
+    # make sure the codon_nums are valid
+    total_num_codons = len(cds) // 3
+    if isinstance(codon_nums, int):
+        if codon_nums > total_num_codons:
+            raise IndexError('Codon number %s out of range.' % codon_nums)
+    else:
+        for i in codon_nums:
+            if i > codon_nums:
+                raise IndexError('Codon number %s out of range.' % i)
+
+    # if only given a single codon number
+    if isinstance(codon_nums, int):
+        if codon_nums == 1:
+            # wrap to the last nucleotide
+            return cds[-1:] + cds[:4]
+        elif codon_nums == total_num_codons:
+            # wrap to the first nucleotide
+            return cds[-4:] + cds[:1]
+        else:
+            return cds[((codon_nums - 1) * 3 - 1):(codon_nums * 3) + 1]
+    else:
+        codon_seq_context = ''
+        for i in codon_nums:
+            codon_nums += cds[((i - 1) * 3 - 1):(i * 3) + 1]
+        return codon_seq_context
+
+
+def gc_content(seq):
+    """
+    Compute the GC content of the given sequence.
+
+    Parameters
+    ----------
+    seq : str
+        A valid nucleotide (DNA) sequence.
+
+    Returns
+    -------
+    float
+        The fraction of nucleotides that are G and C.
+
+    """
+    # make sure that the input is valid
+    if set(seq).difference(set('ATCG')):
+        raise ValueError('Invalid input sequence: %s.' % seq)
+
+    gc_count = 0
+    for x in seq:
+        if x in set('GC'):
+            gc_count += 1
+    return gc_count / len(seq)
