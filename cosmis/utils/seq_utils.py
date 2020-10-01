@@ -254,7 +254,7 @@ def get_codon_seq_context(codon_nums, cds):
             raise IndexError('Codon number %s out of range.' % codon_nums)
     else:
         for i in codon_nums:
-            if i > codon_nums:
+            if i > total_num_codons:
                 raise IndexError('Codon number %s out of range.' % i)
 
     # if only given a single codon number
