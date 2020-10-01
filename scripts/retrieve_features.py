@@ -457,7 +457,7 @@ def main():
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    features.append(id_fields + [i, a] + [np.nan] * 10)
+                    # features.append(id_fields + [i, a] + [np.nan] * 10)
                     continue
                     
                 # check that the amino acid in ENSP sequence matches 
@@ -502,9 +502,15 @@ def main():
                 cs_size = len(contacts_pdb_pos) + 1
 
                 # sequence context
-                seq_context = get_codon_seq_context(
-                    contacts_pdb_pos + [i], transcript_cds
-                )
+                try:
+                    seq_context = get_codon_seq_context(
+                        contacts_pdb_pos + [i], transcript_cds
+                    )
+                except IndexError as seq_context_e:
+                    print(seq_context_e)
+                    continue
+
+                # compute the GC content of the sequence context
                 gc_fraction = gc_content(seq_context)
 
                 if contacts_pdb_pos:
@@ -546,6 +552,7 @@ def main():
                         [
                             seq_seps, 
                             cs_size,
+                            gc_fraction,
                             prob_syn,
                             total_synonymous_obs, 
                             prob_mis,
@@ -581,7 +588,7 @@ def main():
                 header = [
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
-                    'num_contacts', 'synonymous_prob', 'missense_prob',
+                    'num_contacts', 'gc_content', 'synonymous_prob', 'missense_prob',
                     'synonymous_count', 'missense_count'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
