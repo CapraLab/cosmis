@@ -12,214 +12,20 @@ import urllib
 import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
-from cosmis.pdb_struct.contact import Contact
 from cosmis.mapping.sifts import SIFTS
 from cosmis.utils import pdb_utils
-from cosmis.utils.genetic_code import GENETIC_CODE
-from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
 from Bio import SeqIO
 from Bio.SeqUtils import seq1
-from Bio.PDB import NeighborSearch, is_aa
+from Bio.PDB import is_aa
+from cosmis.utils.seq_utils import get_codon_mutation_rates
+from cosmis.utils.seq_utils import count_cds_ns
+from cosmis.utils.seq_utils import get_codon_seq_context
+from cosmis.utils.seq_utils import gc_content
+from cosmis.utils.pdb_utils import search_for_all_contacts
 
 from Bio import BiopythonWarning
 import warnings
 warnings.simplefilter('ignore', BiopythonWarning)
-
-
-def get_codon_mutation_rates(cds):
-    """
-
-    Parameters
-    ----------
-    cds : str
-        Coding sequence.
-
-    Returns
-    -------
-    mutation probabilities : list
-        A list of tuples consisting of synonymous and nonsynonymous mutation
-        probabilities.
-    """
-    if len(cds) % 3 != 0:
-        raise ValueError('Given CDS length is not a multiple of 3.')
-
-    num_codons = len(cds) // 3
-
-    mutation_rates = []
-    # one nucleotide before and one nucleotide after the codon
-    for codon_number in range(1, num_codons + 1):
-        # determine the codon sequence
-        codon_sequence = cds[(codon_number - 1) * 3:codon_number * 3]
-
-        synonymous_rate = 0
-        nonsynonymous_rate = 0
-
-        # determine the mutation rate of the first and the last codons
-        # consider only two mutatable nucleotides
-        if codon_number == 1 or codon_number == num_codons:
-            # first codon
-            if codon_number == 1:
-                sequence_context = cds[:4]
-                # i is the zero-indexed position of the mutated nucleotide
-                for i in range(1, 3):
-                    trinucleotide = sequence_context[i - 1:i + 2]
-                    rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                    for k, v in rates.items():
-                        mutant_sequence = codon_sequence[:i] + k[1] + codon_sequence[i + 1:]
-                        if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                            synonymous_rate += v
-                        elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                            and GENETIC_CODE[mutant_sequence] != 'STOP':
-                            nonsynonymous_rate += v
-            # last codon
-            else:
-                sequence_context = cds[-4:]
-                # i is the zero-indexed position of the mutated nucleotide
-                for i in range(0, 2):
-                    trinucleotide = sequence_context[i:i + 3]
-                    rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                    for k, v in rates.items():
-                        mutant_sequence = codon_sequence[:i] + k[1] + codon_sequence[i + 1:]
-                        if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                            synonymous_rate += v
-                        elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                            and GENETIC_CODE[mutant_sequence] != 'STOP':
-                            nonsynonymous_rate += v
-
-        # codons other than the first and the last
-        # consider all three mutatable nucleotides
-        else:
-            # one nucleotide before and one nucleotide after the codon
-            sequence_context = cds[(codon_number - 1) * 3 - 1:(codon_number - 1) * 3 + 4]
-            # mutate nucleotide in the codon iteratively
-            for i in range(3):
-                trinucleotide = sequence_context[i:i + 3]
-                rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                for k, v in rates.items():
-                    codon_seq_list = list(codon_sequence)
-                    codon_seq_list[i] = k[1]
-                    mutant_sequence = ''.join(codon_seq_list)
-                    if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                        synonymous_rate += v
-                    elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                        and GENETIC_CODE[mutant_sequence] != 'STOP':
-                        nonsynonymous_rate += v
-
-        mutation_rates.append((synonymous_rate, nonsynonymous_rate))
-    return mutation_rates
-
-
-def search_for_all_contacts(residues, radius=8):
-    """
-    Search for all contacts in the given set of residues based on
-    distances between CB atoms.
-
-    Parameters
-    ----------
-    residues
-    radius
-
-    Returns
-    -------
-
-    """
-    atom_list = []
-    for r in residues:
-        if r.get_resname() == 'GLY':
-            try:
-                atom_list.append(r['CA'])
-            except KeyError:
-                print('No CA atom found for GLY:', r, 'skipped ...')
-                continue
-        else:
-            try:
-                atom_list.append(r['CB'])
-            except KeyError:
-                print('No CB atom found for:', r.get_resname(), 'skipped ...')
-                continue
-            # atom_list += [a for a in r.get_atoms() if a.get_name() 
-            #               not in BACKBONE_ATOMS]
-        # atom_list += [a for a in r.get_atoms()]
-    ns = NeighborSearch(atom_list)
-    all_contacts = [
-        Contact(res_a=c[0], res_b=c[1]) 
-        for c in ns.search_all(radius, level='R')
-    ]
-    return all_contacts
-
-
-def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
-    """
-
-    Parameters
-    ----------
-    pos : int
-        Sequence position.
-    ns_counts : dict
-
-    syn_counts : dict
-
-    expected_counts : list
-
-    window : int
-        Window size.
-
-    Returns
-    -------
-    float
-
-
-    """
-    total_ns_obs = 0
-    total_syn_obs = 0
-    total_ns_exp = 0
-    total_syn_exp = 0
-    # handle the special case of the first 15 residues
-    if pos < 16:
-        for i in range(31):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            total_ns_exp += expected_counts[i][0]
-            total_syn_exp += expected_counts[i][1]
-    # handle the special case of the last 15 residues
-    elif pos > len(expected_counts) - 15:
-        for i in range(len(expected_counts) - 31, len(expected_counts)):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            total_ns_exp += expected_counts[i][0]
-            total_syn_exp += expected_counts[i][1]
-    else:
-        for i in range(pos - window // 2, pos + window // 2 + 1):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            if i > 1 or i < len(expected_counts):
-                total_ns_exp += expected_counts[i - 1][0]
-                total_syn_exp += expected_counts[i - 1][1]
-    try:
-        mtr1d = (total_ns_obs / (total_ns_obs + total_syn_obs)) / \
-            (total_ns_exp / (total_ns_exp + total_syn_exp))
-    except ZeroDivisionError:
-        mtr1d = 0
-
-    return total_ns_obs, total_syn_obs, mtr1d
 
 
 def parse_cmd():
@@ -257,11 +63,6 @@ def parse_cmd():
     parser.add_argument(
         '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
         help='''Whether to overwrite already computed COSMIS scores.'''
-    )
-    parser.add_argument(
-        '--mtr1d', dest='mtr1d', required=False, default=False, action='store_true', 
-        help='''If specified, computes COSMIS scores (a.k.a. MTR) implemented 
-        according to Traynelis et al., Genome Research, 2017.'''
     )
     parser.add_argument(
         '-v', '--verbose', dest='verbose', required=False, action='store_true', 
@@ -484,16 +285,16 @@ def main():
     else:
         suffix = '_cosmis.tsv'
 
-    # compute the COSMIS scores for each transcript
+    # compute the contact set features for each transcript
     with open(args.transcripts, 'rt') as ipf:
         for transcript in ipf:
             transcript = transcript.strip()
             print('Processing transcript %s' % transcript)
-            cosmis = []
-            cosmis_file = os.path.join(output_dir, transcript + suffix)
+            features = []
+            feature_file = os.path.join(output_dir, transcript + suffix)
             # skip if it was already computed and overwrite not requested
-            if os.path.exists(cosmis_file) and not args.overwrite:
-                print('Scores for %s already exist, skipped.' % transcript)
+            if os.path.exists(feature_file) and not args.overwrite:
+                print('Features for %s already exist, skipped.' % transcript)
                 continue
             
             # get the amino acid sequence of the transcript
@@ -581,36 +382,10 @@ def main():
                 print(transcript_cds)
                 continue
 
-            # calculate expected counts for each codon
-            codon_mutation_rates = get_codon_mutation_rates(transcript_cds)
-
-            # only compute MTR1D scores if asked on the command-line
-            if args.mtr1d:
-                """
-                @TODO to set the number of expected counts here
-                """
-                expected_counts = None
-                for i, a in enumerate(transcript_pep, start=1):
-                    cosmis.append(
-                        [transcript, ensp_id, uniprot_id, i, a] +
-                        list(
-                            compute_mtr1d(
-                                i, missense_counts, synonymous_counts,
-                                expected_counts, window=31
-                            )
-                        )
-                    )
-                    
-                with open(cosmis_file, mode='wt') as opf:
-                    header = [
-                        'TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 
-                        'ENSP_AA', 'MISSENSE', 'SYNONYMOUS', 'MTR1D'
-                    ]
-                    csv_writer = csv.writer(opf, delimiter='\t')
-                    csv_writer.writerow(header)
-                    csv_writer.writerows(cosmis)
-                print('Finished calcualting MTR1D scores for %s!' % transcript)
-                continue
+            # calculate expected counts and mutation probabilities for each
+            # codon
+            counts_cds = count_cds_ns(transcript_cds)
+            probs_cds = get_codon_mutation_rates(transcript_cds)
 
             # get the PDB ID and PDB chain associated with this transcript
             try:
@@ -628,7 +403,7 @@ def main():
 
             # print message
             print(
-                'Estimating COSMIS scores for:', transcript, ensp_id,
+                'Computing features for:', transcript, ensp_id,
                  uniprot_id, pdb_id, pdb_chain
             )
 
@@ -677,14 +452,11 @@ def main():
                     pdb_pos = uniprot_to_pdb_mapping[i]
                     res = chain[pdb_pos]
                 except KeyError:
-                    # mtr3d.append((i, compute_mtr1d(i, missense_counts, synonymous_counts,
-                    #                            expected_counts, window=31)))
-                    # print('Residue', i, 'not found in', pdb_file)
                     logging.critical(
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    cosmis.append(id_fields + [i, a] + [np.nan] * 10)
+                    features.append(id_fields + [i, a] + [np.nan] * 10)
                     continue
                     
                 # check that the amino acid in ENSP sequence matches 
@@ -702,7 +474,7 @@ def main():
                         'sequence. If this is true, check if there is any oddity '
                         'in the SIFTS residue-level mapping.'
                     )
-                    cosmis.append(
+                    features.append(
                         id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 8
                     )
                     continue
@@ -710,29 +482,30 @@ def main():
 
                 contact_res = indexed_contacts[res]
 
-                # exclude contacting residues that are adjacent in sequence
-                # contacts_pdb_pos = [
-                #     r.get_id()[1] for r in contact_res
-                #     if r.get_id()[1] - i > 3 or r.get_id()[1] - i < -3
-                # ]
                 contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
                 
                 seq_seps = ';'.join(str(x) for x in 
                                     [i - pdb_pos for i in contacts_pdb_pos])
 
-                # collect statistics about the count of contacts
-                # contact_stats.append(
-                #    (transcript, ensp_id, pdb_id, pdb_chain, i, len(contacts_pdb_pos))
-                # )
-                num_contacts = len(contacts_pdb_pos)
-
                 total_missense_obs = missense_counts.setdefault(i, 0)
                 total_synonymous_obs = synonymous_counts.setdefault(i, 0)
                 try:
-                    total_synonymous_rate = codon_mutation_rates[i - 1][0]
-                    total_missense_rate = codon_mutation_rates[i - 1][1]
+                    prob_syn = probs_cds[i - 1][0]
+                    pos_count_syn = counts_cds[i - 1][0]
+                    prob_mis = probs_cds[i - 1][1]
+                    pos_count_mis = counts_cds[i - 1][0]
                 except IndexError:
                     print('list index out of range:', i)
+
+                # size of contact set
+                cs_size = len(contacts_pdb_pos) + 1
+
+                # sequence context
+                seq_context = get_codon_seq_context(
+                    contacts_pdb_pos + [i], transcript_cds
+                )
+                gc_fraction = gc_content(seq_context)
+
                 if contacts_pdb_pos:
                     for j in contacts_pdb_pos:
                         # @TODO need to get the corresponding position in ENSP
@@ -752,8 +525,10 @@ def main():
                         total_synonymous_obs += synonymous_counts.setdefault(ensp_pos, 0)
                         # count the total # expected variants
                         try:
-                            total_synonymous_rate += codon_mutation_rates[ensp_pos - 1][0]
-                            total_missense_rate += codon_mutation_rates[ensp_pos - 1][1]
+                            prob_syn += probs_cds[ensp_pos - 1][0]
+                            pos_count_syn += counts_cds[ensp_pos - 1][0]
+                            prob_mis += probs_cds[ensp_pos - 1][1]
+                            pos_count_mis += counts_cds[ensp_pos - 1][0]
                         except IndexError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s out of the range '
@@ -763,16 +538,16 @@ def main():
                             break
 
                     # compute the fraction of expected missense variants
-                    cosmis.append(
+                    features.append(
                         id_fields + 
                         [i, a, pdb_pos, pdb_aa] + 
                         [pdb_id, pdb_chain] + 
                         [
                             seq_seps, 
-                            num_contacts, 
-                            total_synonymous_rate, 
+                            cs_size,
+                            prob_syn,
                             total_synonymous_obs, 
-                            total_missense_rate, 
+                            prob_mis,
                             total_missense_obs
                         ]
                     )
@@ -786,30 +561,31 @@ def main():
                     logging.critical(
                         'The MTR score for this position was set to 1.0'
                     )
-                    cosmis.append(
+                    features.append(
                         id_fields + 
                         [i, a, pdb_pos, pdb_aa] + 
                         [pdb_id, pdb_chain] +
                         [
                             seq_seps, 
-                            num_contacts, 
-                            total_synonymous_rate, 
+                            cs_size,
+                            gc_fraction,
+                            prob_syn,
+                            prob_mis,
                             total_synonymous_obs,
-                            total_missense_rate, 
                             total_missense_obs
                         ]
                     )
 
-            with open(file=cosmis_file, mode='wt') as opf:
+            with open(file=feature_file, mode='wt') as opf:
                 header = [
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
-                    'pdb_pos', 'pdb_aa', 'seq_separation', 'num_contacts', 
-                    'pdb_id', 'chain_id', 'synonymous_rate', 'synonymous_count', 
-                    'missense_rate', 'missense_count'
+                    'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
+                    'num_contacts', 'synonymous_prob', 'missense_prob',
+                    'synonymous_count', 'missense_count'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
-                csv_writer.writerows(cosmis)
+                csv_writer.writerows(features)
 
 
 if __name__ == '__main__':
