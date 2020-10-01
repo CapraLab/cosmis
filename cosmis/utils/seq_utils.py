@@ -251,10 +251,14 @@ def get_codon_seq_context(codon_nums, cds):
     total_num_codons = len(cds) // 3
     if isinstance(codon_nums, int):
         if codon_nums > total_num_codons:
+            print('The given coding sequence has %s codons:' % total_num_codons)
+            print(cds)
             raise IndexError('Codon number %s out of range.' % codon_nums)
     else:
         for i in codon_nums:
             if i > total_num_codons:
+                print('The given coding sequence has %s codons:' % total_num_codons)
+                print(cds)
                 raise IndexError('Codon number %s out of range.' % i)
 
     # if only given a single codon number
