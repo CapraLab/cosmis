@@ -270,7 +270,7 @@ def get_codon_seq_context(codon_nums, cds):
     else:
         codon_seq_context = ''
         for i in codon_nums:
-            codon_nums += cds[((i - 1) * 3 - 1):(i * 3) + 1]
+            codon_seq_context += cds[((i - 1) * 3 - 1):(i * 3) + 1]
         return codon_seq_context
 
 
