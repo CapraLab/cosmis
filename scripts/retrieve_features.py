@@ -61,6 +61,11 @@ def parse_cmd():
         help='''PDB file representing the 3D structure of the protein.'''
     )
     parser.add_argument(
+        '-s', '--suffix', dest='suffix', type=str, required=False,
+        default='tmp', help='''Suffix to be appended to the name of the 
+        output file.'''
+    )
+    parser.add_argument(
         '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
         help='''Whether to overwrite already computed COSMIS scores.'''
     )
@@ -279,19 +284,15 @@ def main():
     # create SIFTS mapping table
     sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'])
 
-    # set output file suffix
-    if args.mtr1d:
-        suffix = '_mtr1ds.tsv'
-    else:
-        suffix = '_cosmis.tsv'
-
     # compute the contact set features for each transcript
     with open(args.transcripts, 'rt') as ipf:
         for transcript in ipf:
             transcript = transcript.strip()
             print('Processing transcript %s' % transcript)
             features = []
-            feature_file = os.path.join(output_dir, transcript + suffix)
+            feature_file = os.path.join(
+                output_dir, transcript + args.suffix + '.tsv'
+            )
             # skip if it was already computed and overwrite not requested
             if os.path.exists(feature_file) and not args.overwrite:
                 print('Features for %s already exist, skipped.' % transcript)
