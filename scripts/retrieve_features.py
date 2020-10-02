@@ -506,11 +506,13 @@ def main():
                     seq_context = get_codon_seq_context(
                         contacts_pdb_pos + [i], transcript_cds
                     )
-                except IndexError as seq_context_e:
-                    print(seq_context_e)
-                    continue
+                except IndexError:
+                    break
 
                 # compute the GC content of the sequence context
+                if len(seq_context) == 0:
+                    print('No nucleotides were found in sequence context!')
+                    continue
                 gc_fraction = gc_content(seq_context)
 
                 if contacts_pdb_pos:
