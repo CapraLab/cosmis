@@ -554,10 +554,10 @@ def main():
                         [
                             seq_seps, 
                             cs_size,
-                            gc_fraction,
-                            prob_syn,
-                            total_synonymous_obs, 
-                            prob_mis,
+                            '%.3f' % gc_fraction,
+                            '%.3e' % prob_syn,
+                            '%.3e' % prob_mis,
+                            total_synonymous_obs,
                             total_missense_obs
                         ]
                     )
@@ -578,9 +578,9 @@ def main():
                         [
                             seq_seps, 
                             cs_size,
-                            gc_fraction,
-                            prob_syn,
-                            prob_mis,
+                            '%.3f' % gc_fraction,
+                            '%.3e' % prob_syn,
+                            '%.3e' % prob_mis,
                             total_synonymous_obs,
                             total_missense_obs
                         ]
