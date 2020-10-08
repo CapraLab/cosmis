@@ -21,6 +21,7 @@ from cosmis.utils.seq_utils import get_codon_mutation_rates
 from cosmis.utils.seq_utils import count_cds_ns
 from cosmis.utils.seq_utils import get_codon_seq_context
 from cosmis.utils.seq_utils import gc_content
+from cosmis.utils.seq_utils import count_cg_gc
 from cosmis.utils.pdb_utils import search_for_all_contacts
 
 from Bio import BiopythonWarning
@@ -515,6 +516,15 @@ def main():
                     continue
                 gc_fraction = gc_content(seq_context)
 
+                # GC and CG counts
+                gc_count = 0
+                cg_count = 0
+                # 5 is the length of a single codon sequence context
+                for k in range(0, len(seq_context), 5):
+                    x, y = count_cg_gc(seq_context[k:(k + 5)])
+                    gc_count += x
+                    cg_count += y
+
                 if contacts_pdb_pos:
                     for j in contacts_pdb_pos:
                         # @TODO need to get the corresponding position in ENSP
@@ -554,6 +564,8 @@ def main():
                         [
                             seq_seps, 
                             cs_size,
+                            gc_count,
+                            cg_count,
                             '%.3f' % gc_fraction,
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
@@ -578,6 +590,8 @@ def main():
                         [
                             seq_seps, 
                             cs_size,
+                            gc_count,
+                            cg_count,
                             '%.3f' % gc_fraction,
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
@@ -590,8 +604,9 @@ def main():
                 header = [
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
-                    'num_contacts', 'gc_content', 'synonymous_prob', 'missense_prob',
-                    'synonymous_count', 'missense_count'
+                    'num_contacts', 'gc_count', 'cg_count', 'gc_content',
+                    'synonymous_prob', 'missense_prob', 'synonymous_count',
+                    'missense_count'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)

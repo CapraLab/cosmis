@@ -302,3 +302,29 @@ def gc_content(seq):
         if x in set('GC'):
             gc_count += 1
     return gc_count / len(seq)
+
+
+def count_cg_gc(seq):
+    """
+    Count the number of GC/CG 2-mers in the given sequence.
+
+    Parameters
+    ----------
+    seq : str
+        A valid nucleotide (DNA) sequence.
+
+    Returns
+    -------
+    tuple
+        The number of GC/CG 2-mers in the given sequence.
+
+    """
+    cg_count = 0
+    gc_count = 0
+    for i in range(len(seq) - 1):
+        two_mer = seq[i:(i + 2)]
+        if two_mer == 'CG':
+            cg_count += 1
+        elif two_mer == 'GC':
+            gc_count += 1
+    return cg_count, gc_count
