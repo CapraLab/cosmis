@@ -559,7 +559,7 @@ def main():
                     # compute the fraction of expected missense variants
                     features.append(
                         id_fields + 
-                        [i, a, pdb_pos, pdb_aa] + 
+                        [i, a, pdb_pos, pdb_aa] +
                         [pdb_id, pdb_chain] + 
                         [
                             seq_seps, 
@@ -570,7 +570,9 @@ def main():
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
                             total_synonymous_obs,
-                            total_missense_obs
+                            total_missense_obs,
+                            pos_count_syn,
+                            pos_count_mis
                         ]
                     )
                 else:
@@ -596,7 +598,9 @@ def main():
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
                             total_synonymous_obs,
-                            total_missense_obs
+                            total_missense_obs,
+                            pos_count_syn,
+                            pos_count_mis
                         ]
                     )
 
@@ -605,8 +609,8 @@ def main():
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
                     'num_contacts', 'gc_count', 'cg_count', 'gc_content',
-                    'synonymous_prob', 'missense_prob', 'synonymous_count',
-                    'missense_count'
+                    'syn_prob', 'mis_prob', 'syn_count_obs',
+                    'mis_count_obs', 'syn_count_pos', 'mis_count_pos'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
