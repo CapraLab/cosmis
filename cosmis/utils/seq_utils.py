@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 
 from cosmis.utils.genetic_code import GENETIC_CODE
-from cosmis.mutation_rates.trinucleotide_context_rates import  MUTATION_RATES_UNIQUE
+from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
 
 
 def place_holder():
@@ -48,9 +48,44 @@ def count_codon_ns(codon):
             new_aa = GENETIC_CODE[new_codon]
             if new_aa == aa:
                 synonymous += 1
-            elif new_aa != aa and new_aa != 'Stop':
+            elif new_aa != aa and new_aa != '*':
                 missense += 1
     return missense, synonymous
+
+
+def is_valid_cds(seq_record):
+    """
+    Determines whether a given sequence is a valid transcript sequence or not.
+    A valid transcript sequence is defined as one that starts with ATG, ends
+    with a stop codon, that whose length is a multiple of three.
+
+    Parameters
+    ----------
+    seq_record : SeqRecord
+        An object of type SeqRecord.
+
+    Returns
+    -------
+    bool
+        True if the given sequence is a valid transcript sequence else False.
+
+    """
+    # stop codons
+    stop_codons = {'TAG', 'TAA', 'TGA'}
+
+    # the following conditionals skip noncanonical transcripts
+    id_fields = seq_record.id.split('|')
+    if not seq_record.seq[:3] == 'ATG':
+        print('The CDS of', id_fields[0], 'does not start with ATG.')
+        return False
+    if seq_record.seq[-3:] not in stop_codons:
+        print('The CDS of', id_fields[0], 'does not have a stop codon.')
+        return False
+    if len(seq_record.seq) % 3 != 0:
+        print('The CDS of', id_fields[0], 'is not a multiple of 3.')
+        return False
+
+    return True
 
 
 def count_cds_ns(cds):
@@ -328,3 +363,110 @@ def count_cg_gc(seq):
         elif two_mer == 'GC':
             gc_count += 1
     return cg_count, gc_count
+
+
+def translate(cds):
+    """
+    Translate the given coding sequence to amino acid sequence, dropping the
+    stop codon.
+
+    Parameters
+    ----------
+    cds : str
+        Coding sequence
+
+    Returns
+    -------
+    str
+        Amino acid sequence.
+
+    """
+    if len(cds) % 3 != 0:
+        raise ValueError('Invalid CDS: CDS length is not a multiple of 3.')
+
+    aa_seq = []
+    # skip the top codon
+    for x in range(0, len(cds) - 3, 3):
+        codon = cds[x:(x+3)].seq
+        aa_seq.append(GENETIC_CODE[codon])
+    return ''.join(aa_seq)
+
+
+def snp_dms(cds):
+    """
+    Deep mutational scan of single nucleotide substitutions at each site.
+
+    Parameters
+    ----------
+    cds : str
+        Coding sequence.
+
+    Returns
+    -------
+    list
+        A list of lists where each nested list contains all the possible
+        missense variants due to single nucleotide substitutions at the
+        corresponding site.
+    """
+    # make sure the input CDS is valid
+    if set(cds).difference(set('ATCG')):
+        raise ValueError(
+            'Invalid DNA sequence: containing letters other than ATCG.'
+        )
+    if len(cds) % 3 != 0:
+        raise ValueError('Invalid CDS: CDS length is not a multiple of 3.')
+
+    # now do a deep mutational scan
+    dms_variants = []
+    for i in range(0, len(cds) - 3, 3):
+        current_codon = cds[i:i+3]
+        wt_aa = GENETIC_CODE[current_codon]
+        current_vars = set()
+        for k, x in enumerate(current_codon):
+            for y in {'A', 'T', 'C', 'G'} - {x}:
+                var_codon = current_codon[:k] + y + current_codon[k+1:]
+                var_aa = GENETIC_CODE[var_codon]
+                # missense variant
+                if var_aa != wt_aa and var_aa != '*':
+                    current_vars.add(var_aa)
+        dms_variants.append(sorted(current_vars))
+
+    return dms_variants
+
+
+def dn_ds(cds):
+    """
+
+    Parameters
+    ----------
+    cds : str
+
+    Returns
+    -------
+    tuple
+        N, S, dN, dS
+
+    """
+    # make sure that the given CDS is valid
+    if set(cds).difference(set('ATCG')):
+        raise ValueError(
+            'Invalid DNA sequence: containing letters other than ATCG.'
+        )
+    if len(cds) % 3 != 0:
+        raise ValueError('Invalid CDS: CDS length is not a multiple of 3.')
+
+    # now compute dN and dS
+    n = 0
+    s = 0
+    for i in range(0, len(cds), 3):
+        codon = cds[i:i+3]
+        wt_aa = GENETIC_CODE[codon]
+        for k, x in enumerate(codon):
+            for y in {'A', 'T', 'C', 'G'} - {x}:
+                var_codon = codon[:k] + y + codon[y+1:]
+                var_aa = GENETIC_CODE[var_codon]
+                if wt_aa != var_aa:
+                    n += 1.0 / 3
+                else:
+                    s += 1.0 / 3
+    return n, s

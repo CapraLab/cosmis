@@ -170,3 +170,21 @@ def search_for_all_contacts(residues, radius=8):
         for c in ns.search_all(radius, level='R')
     ]
     return all_contacts
+
+
+def compute_adjacency_matrix(model, cutoff):
+    """
+
+    Parameters
+    ----------
+    model : Bio.PDB.Model
+        A protein structure model stored as a Bio.PDB.Model object.
+    cutoff : float
+        Distance cutoff used to consider that two residues are adjacent.
+
+    Returns
+    -------
+    NumPy 2DArray
+
+    """
+    pass
