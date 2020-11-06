@@ -578,7 +578,7 @@ def main():
                             prob_mis += probs_cds[ensp_pos - 1][1]
                             pos_count_mis += counts_cds[ensp_pos - 1][0]
                             cs_phylop_scores.extend(
-                                transcript_phylop_scores[ensp_pos]
+                                transcript_phylop_scores[ensp_pos - 1][3]
                             )
                         except IndexError:
                             logging.critical(
@@ -589,6 +589,7 @@ def main():
                             break
 
                     # compute the fraction of expected missense variants
+                    print(cs_phylop_scores)
                     features.append(
                         id_fields + 
                         [i, a, pdb_pos, pdb_aa] +
