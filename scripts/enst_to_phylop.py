@@ -97,8 +97,13 @@ def main():
     phylop_dict = {}
     with gzip.open(cmd_args.phylop, 'rt') as ipf:
         for line in ipf:
-            _, pos, score = line.strip().split()
-            phylop_dict[int(pos)] = float(score)
+            _, start, end, score = line.strip().split()
+            if int(end) - int(start) == 1:
+                phylop_dict[int(end)] = float(score)
+            # this line represents multiple bases collapsed into an interval
+            else:
+                for i in range(int(start) + 1, int(end) + 1):
+                    phylop_dict[i] = float(score)
 
     print('Extracted {} phyloP scores.'.format(len(phylop_dict)))
 

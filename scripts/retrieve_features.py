@@ -225,6 +225,21 @@ def count_variants(variants):
     return missense_counts, synonymous_counts
 
 
+def get_phylop_scores(score_file):
+    """
+
+    Parameters
+    ----------
+    score_file
+
+    Returns
+    -------
+
+    """
+    with gzip.open(score_file, 'rt') as ipf:
+        return json.load(ipf)
+
+
 def main():
     # parse command-line arguments
     args = parse_cmd()
@@ -278,6 +293,9 @@ def main():
     # parse the file that maps Ensembl transcript IDs to PDB IDs 
     with open(configs['enst_to_pdb'], 'rt') as ipf:
         enst_to_pdb = json.load(ipf)
+
+    # get phylop scores
+    enst_to_phylop = get_phylop_scores(configs['enst_to_phylop'])
 
     # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
@@ -384,6 +402,13 @@ def main():
                 print(transcript_cds)
                 continue
 
+            # get the phyloP scores for the current transcript
+            try:
+                transcript_phylop_scores = enst_to_phylop[transcript]
+            except KeyError:
+                print('No phyloP scores are available for {}'.format(transcript))
+                continue
+
             # calculate expected counts and mutation probabilities for each
             # codon
             counts_cds = count_cds_ns(transcript_cds)
@@ -477,7 +502,7 @@ def main():
                         'in the SIFTS residue-level mapping.'
                     )
                     features.append(
-                        id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 8
+                        id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 15
                     )
                     continue
                     # sys.exit(1)
@@ -486,8 +511,9 @@ def main():
 
                 contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
                 
-                seq_seps = ';'.join(str(x) for x in 
-                                    [i - pdb_pos for i in contacts_pdb_pos])
+                seq_seps = ';'.join(
+                    str(x) for x in [i - pdb_pos for i in contacts_pdb_pos]
+                )
 
                 total_missense_obs = missense_counts.setdefault(i, 0)
                 total_synonymous_obs = synonymous_counts.setdefault(i, 0)
@@ -496,8 +522,11 @@ def main():
                     pos_count_syn = counts_cds[i - 1][0]
                     prob_mis = probs_cds[i - 1][1]
                     pos_count_mis = counts_cds[i - 1][0]
+                    cs_phylop_scores = transcript_phylop_scores[i - 1]
                 except IndexError:
-                    print('list index out of range:', i)
+                    print('Index out of range {} in {}.'.format(i, transcript))
+                    continue
+
 
                 # size of contact set
                 cs_size = len(contacts_pdb_pos) + 1
@@ -548,6 +577,9 @@ def main():
                             pos_count_syn += counts_cds[ensp_pos - 1][0]
                             prob_mis += probs_cds[ensp_pos - 1][1]
                             pos_count_mis += counts_cds[ensp_pos - 1][0]
+                            cs_phylop_scores.extend(
+                                transcript_phylop_scores[ensp_pos]
+                            )
                         except IndexError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s out of the range '
@@ -569,6 +601,8 @@ def main():
                             '%.3f' % gc_fraction,
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
+                            '%.3f' % np.mean(cs_phylop_scores),
+                            "%.3f" % np.std(cs_phylop_scores),
                             total_synonymous_obs,
                             total_missense_obs,
                             pos_count_syn,
@@ -582,9 +616,6 @@ def main():
                         'residue %s in %s of %s',
                         pdb_pos, pdb_id, pdb_chain, i, ensp_id, transcript
                     )
-                    logging.critical(
-                        'The MTR score for this position was set to 1.0'
-                    )
                     features.append(
                         id_fields + 
                         [i, a, pdb_pos, pdb_aa] + 
@@ -597,6 +628,8 @@ def main():
                             '%.3f' % gc_fraction,
                             '%.3e' % prob_syn,
                             '%.3e' % prob_mis,
+                            '%.3f' % np.mean(cs_phylop_scores),
+                            '%.3f' % np.std(cs_phylop_scores),
                             total_synonymous_obs,
                             total_missense_obs,
                             pos_count_syn,
@@ -609,7 +642,7 @@ def main():
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
                     'num_contacts', 'gc_count', 'cg_count', 'gc_content',
-                    'syn_prob', 'mis_prob', 'syn_count_obs',
+                    'syn_prob', 'mis_prob', 'phylop_mean', 'phylop_sd', 'syn_count_obs',
                     'mis_count_obs', 'syn_count_pos', 'mis_count_pos'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
