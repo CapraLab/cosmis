@@ -522,7 +522,7 @@ def main():
                     pos_count_syn = counts_cds[i - 1][0]
                     prob_mis = probs_cds[i - 1][1]
                     pos_count_mis = counts_cds[i - 1][0]
-                    cs_phylop_scores = transcript_phylop_scores[i - 1]
+                    cs_phylop_scores = transcript_phylop_scores[i - 1][3]
                 except IndexError:
                     print('Index out of range {} in {}.'.format(i, transcript))
                     continue
