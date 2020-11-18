@@ -105,7 +105,7 @@ def main():
         #
         print('Now running codeml for transcript: {}'.format(transcript))
         print('========================================================')
-        cml.run(verbose=True)
+        cml.run(verbose=True, command=args.codeml)
 
         # rename files
         if os.path.exists('rst'):
