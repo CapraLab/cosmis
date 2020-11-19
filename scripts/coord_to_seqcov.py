@@ -44,14 +44,16 @@ def main():
         _ = next(ip_handle)
         # process each position
         prev_chrom = 'chr1'
+        print('Now processing chr1 ...')
         for line in ip_handle:
             fields = line.strip().split()
             # chrom, pos, mean_cov, median_cov, ...
             chrom, pos, mean, median = fields[:4]
-            if 'chr' + chrom != prev_chrom:
-                print('Now processing {} ...'.format('chr' + chrom))
+            chrom = 'chr' + chrom
+            if chrom != prev_chrom:
+                print('Now processing {} ...'.format(chrom))
                 prev_chrom = chrom
-            coord_to_seqcov['chr' + chrom][int(pos)] = (float(mean), float(median))
+            coord_to_seqcov[chrom][int(pos)] = (float(mean), float(median))
 
 
     print('Now writing depths of coverage to {}'.format(cmd_args.output))
