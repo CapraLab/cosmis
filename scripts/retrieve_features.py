@@ -9,6 +9,7 @@ import gzip
 import json
 import logging
 import urllib
+import copy
 import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
@@ -523,12 +524,14 @@ def main():
                     pos_count_syn = counts_cds[i - 1][0]
                     prob_mis = probs_cds[i - 1][1]
                     pos_count_mis = counts_cds[i - 1][0]
-                    cs_phylop_scores = transcript_phylop_scores[i - 1][3]
+                    cs_phylop_scores = copy.deepcopy(transcript_phylop_scores[i - 1][3])
                 except IndexError:
                     print('Index out of range {} in {}.'.format(i, transcript))
                     continue
 
-                genome_coords = enst_to_coord[transcript]['genome_coord'][i - 1][3]
+                genome_coords = copy.deepcopy(
+                    enst_to_coord[transcript]['genome_coord'][i - 1][3]
+                )
 
                 # size of contact set
                 cs_size = len(contacts_pdb_pos) + 1
