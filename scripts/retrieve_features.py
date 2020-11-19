@@ -299,11 +299,13 @@ def main():
     enst_to_phylop = get_phylop_scores(configs['enst_to_phylop'])
 
     # sequencing depth of coverage
-    with open(configs['coord_to_seqcov'], 'rt') as ipf:
+    print('Loading sequencing depths of coverage ...')
+    with gzip.open(configs['coord_to_seqcov'], 'rt') as ipf:
         coord_to_seqcov = json.load(ipf)
 
-    # genomic coordinates of trancripts
-    with open(configs['enst_to_coord'], 'rt') as ipf:
+    # genomic coordinates of transcripts
+    print('Loading transcript genomic coordinates ...')
+    with gzip.open(configs['enst_to_coord'], 'rt') as ipf:
         enst_to_coord = json.load(ipf)
 
     # get the directory where all output files will be stored
