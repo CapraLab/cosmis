@@ -297,6 +297,14 @@ def main():
     # get phylop scores
     enst_to_phylop = get_phylop_scores(configs['enst_to_phylop'])
 
+    # sequencing depth of coverage
+    with open(configs['coord_to_seqcov'], 'rt') as ipf:
+        coord_to_seqcov = json.load(ipf)
+
+    # genomic coordinates of trancripts
+    with open(configs['enst_to_coord'], 'rt') as ipf:
+        enst_to_coord = json.load(ipf)
+
     # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
 
@@ -365,8 +373,6 @@ def main():
                 )
                 logging.critical('%s was skipped ...', transcript)
                 continue
-
-            # tabulate variants at each site
             missense_counts, synonymous_counts = count_variants(variants)
 
             # get the coding sequence of the transcript
@@ -409,8 +415,7 @@ def main():
                 print('No phyloP scores are available for {}'.format(transcript))
                 continue
 
-            # calculate expected counts and mutation probabilities for each
-            # codon
+            # calculate expected counts and mutation probabilities
             counts_cds = count_cds_ns(transcript_cds)
             probs_cds = get_codon_mutation_rates(transcript_cds)
 
@@ -423,8 +428,7 @@ def main():
                     transcript, configs['enst_to_pdb']
                 )
                 logging.critical('%s was skipped ...', transcript)
-                print('%s not found in given database %s' %
-                      (transcript, configs['enst_to_pdb']))
+                print('%s not found in given database %s' % (transcript, configs['enst_to_pdb']))
                 print('%s was skipped ...' % transcript)
                 continue
 
@@ -483,7 +487,6 @@ def main():
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    # features.append(id_fields + [i, a] + [np.nan] * 10)
                     continue
                     
                 # check that the amino acid in ENSP sequence matches 
@@ -505,10 +508,8 @@ def main():
                         id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 15
                     )
                     continue
-                    # sys.exit(1)
 
                 contact_res = indexed_contacts[res]
-
                 contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
                 
                 seq_seps = ';'.join(
@@ -527,6 +528,7 @@ def main():
                     print('Index out of range {} in {}.'.format(i, transcript))
                     continue
 
+                genome_coords = enst_to_coord[transcript]['genome_coord'][i - 1][3]
 
                 # size of contact set
                 cs_size = len(contacts_pdb_pos) + 1
@@ -588,63 +590,49 @@ def main():
                             )
                             break
 
-                    # compute the fraction of expected missense variants
-                    print(cs_phylop_scores)
-                    features.append(
-                        id_fields + 
-                        [i, a, pdb_pos, pdb_aa] +
-                        [pdb_id, pdb_chain] + 
-                        [
-                            seq_seps, 
-                            cs_size,
-                            gc_count,
-                            cg_count,
-                            '%.3f' % gc_fraction,
-                            '%.3e' % prob_syn,
-                            '%.3e' % prob_mis,
-                            '%.3f' % np.mean(cs_phylop_scores),
-                            "%.3f" % np.std(cs_phylop_scores),
-                            total_synonymous_obs,
-                            total_missense_obs,
-                            pos_count_syn,
-                            pos_count_mis
-                        ]
+                    # get all sequencing depths of coverage
+                    genome_coords.extend(
+                        enst_to_coord[transcript]['genome_coord'][ensp_pos - 1][3]
                     )
-                else:
-                    logging.critical(
-                        'No contacts were found in the neighborhood of '
-                        'position %s in the PDB file %s chain %s of mapped '
-                        'residue %s in %s of %s',
-                        pdb_pos, pdb_id, pdb_chain, i, ensp_id, transcript
-                    )
-                    features.append(
-                        id_fields + 
-                        [i, a, pdb_pos, pdb_aa] + 
-                        [pdb_id, pdb_chain] +
-                        [
-                            seq_seps, 
-                            cs_size,
-                            gc_count,
-                            cg_count,
-                            '%.3f' % gc_fraction,
-                            '%.3e' % prob_syn,
-                            '%.3e' % prob_mis,
-                            '%.3f' % np.mean(cs_phylop_scores),
-                            '%.3f' % np.std(cs_phylop_scores),
-                            total_synonymous_obs,
-                            total_missense_obs,
-                            pos_count_syn,
-                            pos_count_mis
-                        ]
-                    )
+                    chrom = enst_to_coord[transcript]['chrom']
+                    seqcov = []
+                    for coord in genome_coords:
+                        try:
+                            seqcov.append(coord_to_seqcov[chrom][coord][0])
+                        except KeyError:
+                            continue
+
+                # compute the fraction of expected missense variants
+                print(cs_phylop_scores)
+                features.append(
+                    id_fields +
+                    [i, a, pdb_pos, pdb_aa] +
+                    [pdb_id, pdb_chain] +
+                    [
+                        seq_seps,
+                        cs_size,
+                        gc_count,
+                        cg_count,
+                        '%.3f' % gc_fraction,
+                        '%.3e' % prob_syn,
+                        '%.3e' % prob_mis,
+                        '%.3f' % np.mean(cs_phylop_scores),
+                        "%.3f" % np.std(cs_phylop_scores),
+                        "%.3f" % np.mean(seqcov),
+                        total_synonymous_obs,
+                        total_missense_obs,
+                        pos_count_syn,
+                        pos_count_mis
+                    ]
+                )
 
             with open(file=feature_file, mode='wt') as opf:
                 header = [
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa', 'pdb_id', 'chain_id', 'seq_separation',
                     'num_contacts', 'gc_count', 'cg_count', 'gc_content',
-                    'syn_prob', 'mis_prob', 'phylop_mean', 'phylop_sd', 'syn_count_obs',
-                    'mis_count_obs', 'syn_count_pos', 'mis_count_pos'
+                    'syn_prob', 'mis_prob', 'phylop_mean', 'phylop_sd', 'seqcov',
+                    'syn_count_obs', 'mis_count_obs', 'syn_count_pos', 'mis_count_pos'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
