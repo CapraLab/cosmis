@@ -600,15 +600,17 @@ def main():
                         enst_to_coord[transcript]['genome_coord'][ensp_pos - 1][3]
                     )
                     chrom = enst_to_coord[transcript]['chrom']
+                    print(chrom)
                     seqcov = []
                     for coord in genome_coords:
+                        print(coord)
                         try:
-                            seqcov.append(coord_to_seqcov[chrom][coord][0])
+                            print(transcript, chrom, coord)
+                            seqcov.append(coord_to_seqcov[chrom][str(coord)][0])
                         except KeyError:
                             continue
 
                 # compute the fraction of expected missense variants
-                print(cs_phylop_scores)
                 features.append(
                     id_fields +
                     [i, a, pdb_pos, pdb_aa] +
