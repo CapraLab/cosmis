@@ -56,10 +56,11 @@ def main():
     cmd_args = parse_cmd_args()
 
     coords_dict = defaultdict(list)
+    chrom_dict = {}
     # parse coordinates into a dictionary
     with open(cmd_args.coordinates, 'rt') as ipf:
         for line in ipf:
-            _, start, end, enst = line.strip().split()
+            chrom, start, end, enst = line.strip().split()
             start = int(start)
             end = int(end)
             enst_id = enst.split('.')[0]
@@ -67,6 +68,8 @@ def main():
             if cmd_args.format == 'bed':
                 start += 1
             # using 1-start, fully-closed coordinate system
+            if chrom_dict.get(enst_id) is None:
+                chrom_dict[enst_id] = chrom
             coords_dict[enst_id].extend(range(start, end + 1))
 
     print('Extracted coordinates for {} transcripts.'.format(len(coords_dict)))
@@ -94,30 +97,34 @@ def main():
 
     print('Extracted {} canonical CDS records.'.format(len(seqs_dict)))
 
-    phylop_dict = {}
+    phylop_dict = defaultdict(dict)
     with gzip.open(cmd_args.phylop, 'rt') as ipf:
         for line in ipf:
-            _, start, end, score = line.strip().split()
+            chrom, start, end, score = line.strip().split()
             if int(end) - int(start) == 1:
-                phylop_dict[int(end)] = float(score)
+                phylop_dict[chrom][int(end)] = float(score)
             # this line represents multiple bases collapsed into an interval
             else:
                 for i in range(int(start) + 1, int(end) + 1):
-                    phylop_dict[i] = float(score)
+                    phylop_dict[chrom][i] = float(score)
 
     print('Extracted {} phyloP scores.'.format(len(phylop_dict)))
 
     # map CDS to genomic coordinates
-    cds_to_coords = defaultdict(list)
+    all_cds_to_phylop = defaultdict(dict)
     for enst_id, (cds, aa_seq) in seqs_dict.items():
         # get genomic coordinates
         try:
             coords = coords_dict[enst_id]
+            chrom = chrom_dict[enst_id]
         except KeyError:
             if cmd_args.verbose:
                 print('No coordinates found for {}.'.format(enst_id))
                 print('Please double check your input files.')
             continue
+
+        # add chrom info
+        all_cds_to_phylop[enst_id]['chrom'] = chrom
 
         if len(cds) - 3 != len(coords):
             if cmd_args.verbose:
@@ -125,19 +132,21 @@ def main():
                 print('CDS length: {}, # coordinates: {}'.format(len(cds), len(coords)))
             continue
 
+        cds_to_phylop = []
         for i, a in enumerate(aa_seq):
             codon = str(cds[i*3:(i*3+3)].seq)
             codon_coords = coords[i*3:(i*3+3)]
             codon_phylop_scores = [
-                phylop_dict.get(int(x), '') for x in codon_coords
+                phylop_dict.get(chrom).get(int(x), '') for x in codon_coords
             ]
-            cds_to_coords[enst_id].append(
+            cds_to_phylop.append(
                 tuple([a, codon, codon_coords, codon_phylop_scores])
             )
+        all_cds_to_phylop[enst_id]['phylop'] = cds_to_phylop
 
     print('Now writing mapping to {}'.format(cmd_args.output))
     with open(cmd_args.output, 'wt') as opf:
-        json.dump(cds_to_coords, fp=opf, indent=4)
+        json.dump(all_cds_to_phylop, fp=opf, indent=4)
 
 
 if __name__ == '__main__':
