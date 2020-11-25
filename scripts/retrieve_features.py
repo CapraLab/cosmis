@@ -413,7 +413,7 @@ def main():
 
             # get the phyloP scores for the current transcript
             try:
-                transcript_phylop_scores = enst_to_phylop[transcript]
+                transcript_phylop_scores = enst_to_phylop[transcript]['phylop']
             except KeyError:
                 print('No phyloP scores are available for {}'.format(transcript))
                 continue
@@ -600,12 +600,9 @@ def main():
                         enst_to_coord[transcript]['genome_coord'][ensp_pos - 1][3]
                     )
                     chrom = enst_to_coord[transcript]['chrom']
-                    print(chrom)
                     seqcov = []
                     for coord in genome_coords:
-                        print(coord)
                         try:
-                            print(transcript, chrom, coord)
                             seqcov.append(coord_to_seqcov[chrom][str(coord)][0])
                         except KeyError:
                             continue
