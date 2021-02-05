@@ -470,3 +470,33 @@ def dn_ds(cds):
                 else:
                     s += 1.0 / 3
     return n, s
+
+
+def get_uniprot_aa_seq(uniprot_id):
+    """
+    Retrieve amino acid sequence given its UniProt identifier.
+
+    Parameters
+    ----------
+    uniprot_id : str
+        UniProt identifier of the amino acid sequence.
+
+    Returns
+    -------
+    str
+        The amino acid sequence associated with the UniProt identifier.
+
+    """
+    import urllib
+    from urllib.error import HTTPError
+    fasta_url = 'https://www.uniprot.org/uniprot/' + uniprot_id + '.fasta'
+    try:
+        url_stream = urllib.request.urlopen(fasta_url)
+    except HTTPError:
+        return None
+    aa_seq = ''
+    for l in url_stream.read().decode('ascii').split('\n'):
+        if not l.startswith('>'):
+            aa_seq += l.strip()
+    return aa_seq
+

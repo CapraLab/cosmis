@@ -57,7 +57,7 @@ def main():
     # parse coordinates into a dictionary
     with open(cmd_args.coordinates, 'rt') as ipf:
         for line in ipf:
-            chrom, start, end, enst = line.strip().split()
+            chrom, start, end, strand, enst = line.strip().split()
             start = int(start)
             end = int(end)
             enst_id = enst.split('.')[0]
@@ -67,7 +67,11 @@ def main():
             if cmd_args.format == 'bed':
                 start += 1
             # using 1-start, fully-closed coordinate system
-            coords_dict[enst_id].extend(range(start, end + 1))
+            if strand == '-':
+                start, end = end, start
+                coords_dict[enst_id].extend(range(start, end - 1, -1))
+            else:
+                coords_dict[enst_id].extend(range(start, end + 1))
 
     print('Extracted coordinates for {} transcripts.'.format(len(coords_dict)))
 

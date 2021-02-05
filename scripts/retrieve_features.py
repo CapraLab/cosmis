@@ -596,9 +596,13 @@ def main():
                             break
 
                     # get all sequencing depths of coverage
-                    genome_coords.extend(
-                        enst_to_coord[transcript]['genome_coord'][ensp_pos - 1][3]
-                    )
+                    try:
+                        genome_coords.extend(
+                            enst_to_coord[transcript]['genome_coord'][ensp_pos - 1][3]
+                        )
+                    except IndexError:
+                        print('{} index out of range: {}'.format(transcript, ensp_pos))
+                        continue
                     chrom = enst_to_coord[transcript]['chrom']
                     seqcov = []
                     for coord in genome_coords:

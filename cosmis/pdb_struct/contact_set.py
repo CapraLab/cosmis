@@ -48,7 +48,7 @@ class ContactSet:
 
         """
         # get the coding nucleotide sequence
-        transcript_id =
+        pass
 
     def __init__(self, cds, codon_ids, transcript_id):
         """
