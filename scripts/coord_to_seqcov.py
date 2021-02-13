@@ -46,9 +46,8 @@ def main():
         prev_chrom = 'chr1'
         print('Now processing chr1 ...')
         for line in ip_handle:
-            fields = line.strip().split()
             # chrom, start, end, mean_cov, median_cov, ...
-            chrom, _, pos, mean, median = fields[:4]
+            chrom, _, pos, mean, median = line.strip().split()
             if chrom != prev_chrom:
                 print('Now processing {} ...'.format(chrom))
                 prev_chrom = chrom
