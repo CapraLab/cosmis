@@ -47,6 +47,8 @@ def parse_cmd():
     parser.add_argument('-o', '--output', dest='output_file', required=True,
                         type=str, help='''Output file to store the COSMIS scores
                         of the protein.''')
+    parser.add_argument('--multimer', dest='multimer', action='store_true',
+                        default=False, help='Is the input PDB file a multimer?')
     parser.add_argument('--chain', dest='pdb_chain', default='A', type=str,
                         help='Chain ID of the subunit in the PBD file.')
     parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
@@ -326,8 +328,11 @@ def main():
 
     pdb_parser = PDBParser(PERMISSIVE=1)
     structure = pdb_parser.get_structure(id='NA', file=pdb_file)
-    chain = structure[0][pdb_chain]
-    all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
+    if args.multimer:
+        all_aa_residues = [aa for aa in structure[0].get_residues() if is_aa(aa)]
+    else:
+        chain = structure[0][pdb_chain]
+        all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
     all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=6)
     
     # calculate expected counts for each codon
