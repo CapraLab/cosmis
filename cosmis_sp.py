@@ -1,11 +1,19 @@
 #!/usr/bin/env python3
 
 """
-    @summary
+    @summary: This is the single-protein version of the COSMIS method, hence its
+    name 'cosmis_sp.py'. It was designed to work with proteins for which the
+    COSMIS scores were not already computed, because the protein structure
+    database used wasn't up to date. However, if there exists a structure or
+    homology model for the protein of interest, its COSMIS scores can still be
+    computed using this script.
+    @author: Bian Li
+    @contact: bian.li@vanderbilt.edu
+    @change: Last modified 2/12/2021.
 
 """
 
-import sys, os, csv
+import sys, csv
 import gzip
 import json
 from collections import defaultdict
@@ -18,9 +26,13 @@ from cosmis.utils import pdb_utils, seq_utils
 
 def parse_cmd():
     """
+    Specifies command-line flags and parses command-line options.
 
     Returns
     -------
+    ArgumentParser
+        An object of type ArgumentParser containing the parsed command-line
+        arguments.
 
     """
     parser = ArgumentParser()
@@ -32,6 +44,9 @@ def parse_cmd():
     parser.add_argument('-p', '--pdb', dest='pdb_file', required=True,
                         type=str, help='''PDB file containing the structure
                         of the protein structure of the given transcript.''')
+    parser.add_argument('-o', '--output', dest='output_file', required=True,
+                        type=str, help='''Output file to store the COSMIS scores
+                        of the protein.''')
     parser.add_argument('--chain', dest='pdb_chain', default='A', type=str,
                         help='Chain ID of the subunit in the PBD file.')
     parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
@@ -47,6 +62,7 @@ def parse_cmd():
 
 def get_ensembl_accession(record):
     """
+    Convert a FASTA file record into an accession ID.
 
     Parameters
     ----------
@@ -55,6 +71,8 @@ def get_ensembl_accession(record):
 
     Returns
     -------
+    str
+        Accession ID that can be used as dictionary key.
 
     """
     parts = record.id.split('.')
@@ -102,13 +120,18 @@ def get_transcript_pep_seq(enst_id, ensp_id, pep_dict):
 
 def parse_config(config):
     """
+    Parses the configuration file for computing COSMIS scores into a Python
+    dictionary.
 
     Parameters
     ----------
-    config
+    config : json
+        Configuration file in JSON format.
 
     Returns
     -------
+    dict
+        A Python dictionary.
 
     """
     with open(config, 'rt') as ipf:
@@ -235,9 +258,6 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
-    # directory where to store the output files
-    output_dir = os.path.abspath(configs['output_dir'])
-
     # compute the MRT scores
     pdb_file = args.pdb_file
     pdb_chain = args.pdb_chain
@@ -304,7 +324,9 @@ def main():
         pdb_file
     )
 
-    chain = pdb_utils.get_pdb_chain(pdb_file, pdb_chain)
+    pdb_parser = PDBParser(PERMISSIVE=1)
+    structure = pdb_parser.get_structure(id='NA', file=pdb_file)
+    chain = structure[0][pdb_chain]
     all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
     all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=6)
     
@@ -360,10 +382,7 @@ def main():
             ]
         )
 
-    with open(
-            file=os.path.join(output_dir, transcript + '_mtr3ds.tsv'), 
-            mode='wt'
-        ) as opf:
+    with open(file=args.output_file, mode='wt') as opf:
         header = [
             'transcript_id', 'peptide_id', 'position', 'amino_acid', 
             'contacts', 'synonymous_rate', 'synonymous_count', 
