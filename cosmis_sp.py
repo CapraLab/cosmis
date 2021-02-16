@@ -328,7 +328,7 @@ def main():
     structure = pdb_parser.get_structure(id='NA', file=pdb_file)
     chain = structure[0][pdb_chain]
     all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=6)
+    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
     
     # calculate expected counts for each codon
     codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
@@ -351,8 +351,8 @@ def main():
             res = chain[seq_pos]
         except KeyError:
             print(
-                'Residue %s not found in chain %s in PDB file: %s' %
-                seq_pos, pdb_chain, pdb_file
+                'Residue %s not found in chain %s in PDB file: %s' % 
+                (seq_pos, pdb_chain, pdb_file)
             )
             continue
         pdb_aa = seq1(res.get_resname())
@@ -384,8 +384,8 @@ def main():
         cosmis_scores.append(
             [
                 transcript, ensp_id, seq_pos, seq_aa, seq_seps, 
-                '%.3f' % total_synonymous_rate, total_synonymous_obs,
-                '%.3f' % total_missense_rate, total_missense_obs
+                '%.3e' % total_synonymous_rate, total_synonymous_obs,
+                '%.3e' % total_missense_rate, total_missense_obs
             ]
         )
 
