@@ -351,7 +351,7 @@ def main():
             res = chain[seq_pos]
         except KeyError:
             print(
-                'Residue %s not found in chain %s in PDB file: %s',
+                'Residue %s not found in chain %s in PDB file: %s' %
                 seq_pos, pdb_chain, pdb_file
             )
             continue
@@ -384,8 +384,8 @@ def main():
         cosmis_scores.append(
             [
                 transcript, ensp_id, seq_pos, seq_aa, seq_seps, 
-                total_synonymous_rate, total_synonymous_obs,
-                total_missense_rate, total_missense_obs
+                '%.3f' % total_synonymous_rate, total_synonymous_obs,
+                '%.3f' % total_missense_rate, total_missense_obs
             ]
         )
 
