@@ -347,11 +347,18 @@ def main():
     for seq_pos, seq_aa in enumerate(transcript_pep_seq, start=1):
         # check that the amino acid in ENSP sequence matches 
         # that in the PDB structure
-        res = chain[seq_pos]
+        try:
+            res = chain[seq_pos]
+        except KeyError:
+            print(
+                'Residue %s not found in chain %s in PDB file: %s',
+                seq_pos, pdb_chain, pdb_file
+            )
+            continue
         pdb_aa = seq1(res.get_resname())
         if seq_aa != pdb_aa:
             print('Residue in ENSP did not match that in PDB at', seq_pos)
-            sys.exit(1)
+            continue
 
         contact_res = indexed_contacts[res]
         contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
