@@ -367,6 +367,7 @@ def main():
             continue
 
         contact_res = indexed_contacts[res]
+        print(res, contact_res)
         contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
         
         seq_seps = ';'.join(
