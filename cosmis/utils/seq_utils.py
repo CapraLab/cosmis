@@ -26,6 +26,8 @@ def main():
 
 def count_codon_ns(codon):
     """
+    Count the respective number of possible missense and synonymous SNPs of the
+    given codon.
 
     Parameters
     ----------
