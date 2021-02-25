@@ -328,12 +328,12 @@ def main():
 
     pdb_parser = PDBParser(PERMISSIVE=1)
     structure = pdb_parser.get_structure(id='NA', file=pdb_file)
+    chain = structure[0][pdb_chain]
     if args.multimer:
         all_aa_residues = [aa for aa in structure[0].get_residues() if is_aa(aa)]
     else:
-        chain = structure[0][pdb_chain]
         all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=6)
+    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
 
     # calculate expected counts for each codon
     codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
@@ -366,6 +366,7 @@ def main():
             continue
 
         contact_res = indexed_contacts[res]
+        print(res, contact_res)
         contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
         
         seq_seps = ';'.join(
