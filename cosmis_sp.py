@@ -320,7 +320,7 @@ def main():
 
     # print message
     print(
-        'Estimating MRT3D scores for:', 
+        'Estimating COSMIS scores for:',
         transcript, 
         ensp_id,
         pdb_file
@@ -333,10 +333,11 @@ def main():
     else:
         chain = structure[0][pdb_chain]
         all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=6)
+    all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
 
-    # calculate expected counts for each codon
+    # get mutation rates and expected counts for each codon
     codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
+    all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds)
     
     # tabulate variants at each site
     # missense_counts and synonymous_counts are dictionary that maps
@@ -374,6 +375,8 @@ def main():
 
         total_missense_obs = missense_counts.setdefault(seq_pos, 0)
         total_synonymous_obs = synonymous_counts.setdefault(seq_pos, 0)
+        total_missense_poss = all_cds_ns_counts[seq_pos - 1][0]
+        total_synonyms_poss = all_cds_ns_counts[seq_pos - 1][1]
         total_synonymous_rate = codon_mutation_rates[seq_pos - 1][0]
         total_missense_rate = codon_mutation_rates[seq_pos - 1][1]
         for j in contacts_pdb_pos:
@@ -382,13 +385,16 @@ def main():
             total_synonymous_obs += synonymous_counts.setdefault(j, 0)
 
             # count the total # expected variants
+            total_missense_poss += all_cds_ns_counts[j - 1][0]
+            total_synonyms_poss += all_cds_ns_counts[j - 1][1]
             total_synonymous_rate += codon_mutation_rates[j - 1][0]
             total_missense_rate += codon_mutation_rates[j - 1][1]
 
         # compute the fraction of expected missense variants
         cosmis_scores.append(
             [
-                transcript, ensp_id, seq_pos, seq_aa, seq_seps, 
+                transcript, ensp_id, seq_pos, seq_aa, seq_seps,
+                total_synonyms_poss, total_missense_poss,
                 '%.3e' % total_synonymous_rate, total_synonymous_obs,
                 '%.3e' % total_missense_rate, total_missense_obs
             ]
@@ -397,8 +403,9 @@ def main():
     with open(file=args.output_file, mode='wt') as opf:
         header = [
             'transcript_id', 'peptide_id', 'position', 'amino_acid', 
-            'contacts', 'synonymous_rate', 'synonymous_count', 
-            'missense_rate', 'missense_count'
+            'contacts', 'synonymous_poss', 'missense_poss',
+            'synonymous_rate', 'synonymous_obs',
+            'missense_rate', 'missense_obs'
         ]
         csv_writer = csv.writer(opf, delimiter='\t')
         csv_writer.writerow(header)
