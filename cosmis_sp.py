@@ -394,6 +394,7 @@ def main():
         cosmis_scores.append(
             [
                 transcript, ensp_id, seq_pos, seq_aa, seq_seps,
+                len(contacts_pdb_pos),
                 total_synonyms_poss, total_missense_poss,
                 '%.3e' % total_synonymous_rate, total_synonymous_obs,
                 '%.3e' % total_missense_rate, total_missense_obs
@@ -402,8 +403,8 @@ def main():
 
     with open(file=args.output_file, mode='wt') as opf:
         header = [
-            'transcript_id', 'peptide_id', 'position', 'amino_acid', 
-            'contacts', 'synonymous_poss', 'missense_poss',
+            'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa', 'seq_separations',
+            'num_contacts', 'synonymous_poss', 'missense_poss',
             'synonymous_rate', 'synonymous_obs',
             'missense_rate', 'missense_obs'
         ]
