@@ -545,11 +545,12 @@ def permute_missense(m, l, p=None, n=10000):
     if not (p is None) and l != len(p):
         raise ValueError('')
     # normalize p
-    p = p / np.sum(p)
+    if p is not None:
+        p = p / np.sum(p)
     missense_matrix = []
     for _ in range(n):
         v = np.zeros(l)
-        m_sites = np.random.choice(range(l), m, replace=False, p=p)
+        m_sites = np.random.choice(range(l), m, replace=True, p=p)
         v[m_sites] = 1
         missense_matrix.append(v)
     return np.stack(missense_matrix)

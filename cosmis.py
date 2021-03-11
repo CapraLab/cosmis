@@ -445,7 +445,7 @@ def main():
             missense_rates = [x[0] for x in codon_mutation_rates]
             norm_missense_rates = missense_rates / np.sum(missense_rates)
             permuted_missense_mutations = seq_utils.permute_missense(
-                total_mis_counts, len(transcript_pep), norm_missense_rates, 10000
+                total_mis_counts, len(transcript_pep)
             )
 
             # only compute MTR1D scores if asked on the command-line
@@ -588,17 +588,13 @@ def main():
                 except IndexError:
                     print('list index out of range:', i)
                 if contacts_pdb_pos:
-                    mean_missense_counts = np.mean(
-                        permuted_missense_mutations[:, contacts_pdb_pos + [i]].sum(axis=1)
-                    )
-                    sd_missense_counts = np.std(
-                        permuted_missense_mutations[:, contacts_pdb_pos + [i]].sum(axis=1)
-                    )
+                    all_ensp_pos = []
                     for j in contacts_pdb_pos:
                         # @TODO need to get the corresponding position in ENSP
                         # amino acid sequence using the SIFTS mapping table
                         try:
                             ensp_pos = pdb_to_uniprot_mapping[j]
+                            all_ensp_pos.append(ensp_pos)
                         except KeyError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s not found '
@@ -623,6 +619,13 @@ def main():
                                 j, pdb_id, pdb_chain, transcript
                             )
                             break
+                    contact_res_indices = [pos - 1 for pos in all_ensp_pos] + [i - 1]
+                    mean_missense_counts = np.mean(
+                        permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+                    )
+                    sd_missense_counts = np.std(
+                        permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+                    )
 
                     # compute the fraction of expected missense variants
                     cosmis.append(
