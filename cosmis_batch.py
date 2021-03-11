@@ -4,6 +4,7 @@ import os, csv
 import gzip
 import json
 import urllib
+import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
 from cosmis.utils import pdb_utils, seq_utils
@@ -89,30 +90,6 @@ def get_transcript_pep_seq(enst_id, ensp_id, pep_dict):
         print('%s was skipped ...' % enst_id)
         return None
     return transcript_pep
-
-
-def get_uniprot_aa_seq(uniprot_id):
-    """
-
-    Parameters
-    ----------
-    uniprot_id
-
-    Returns
-    -------
-
-    """
-    from urllib.request import HTTPError
-    fasta_url = 'https://www.uniprot.org/uniprot/' + uniprot_id + '.fasta'
-    try:
-        url_stream = urllib.request.urlopen(fasta_url)
-    except HTTPError:
-        return None
-    aa_seq = ''
-    for l in url_stream.read().decode('ascii').split('\n'):
-        if not l.startswith('>'):
-            aa_seq += l.strip()
-    return aa_seq
 
 
 def get_pdb_chain(pdb_file, pdb_chain):
@@ -254,7 +231,7 @@ def main():
 
     # read transcript to swiss model mapping
     with open(args.input, 'rt') as ipf:
-        transcripts = [l.strip().split() for l in ipf]
+        transcripts = [line.strip().split() for line in ipf]
         
     # compute the MRT scores
     for x, y in transcripts:
@@ -364,6 +341,16 @@ def main():
         # amino acid positions to variant counts
         missense_counts, synonymous_counts = count_variants(variants)
 
+        # compute the total number of missense variants
+        total_mis_counts = 0
+        for k, v in missense_counts.items():
+            total_mis_counts += v
+
+        # permutation test
+        permuted_missense_mutations = seq_utils.permute_missense(
+            total_mis_counts, len(transcript_pep_seq)
+        )
+
         # index all contacts by residue ID
         indexed_contacts = defaultdict(list)
         for c in all_contacts:
@@ -393,6 +380,13 @@ def main():
                 str(x) for x in [i - seq_pos for i in contacts_pdb_pos]
             )
 
+            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
+            permutation_mean = np.mean(
+                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+            )
+            permutation_sd = np.std(
+                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+            )
             total_missense_obs = missense_counts.setdefault(seq_pos, 0)
             total_synonymous_obs = synonymous_counts.setdefault(seq_pos, 0)
             total_missense_poss = all_cds_ns_counts[seq_pos - 1][0]
@@ -422,7 +416,9 @@ def main():
                     '{:.3e}'.format(total_synonymous_rate),
                     total_synonymous_obs,
                     '{:.3e}'.format(total_missense_rate),
-                    total_missense_obs
+                    total_missense_obs,
+                    '{:.3f}'.format(permutation_mean),
+                    '{:.3f}'.format(permutation_sd)
                 ]
             )
 
@@ -437,7 +433,7 @@ def main():
                 'transcript_id', 'peptide_id', 'position', 'amino_acid',
                 'seq_separations', 'num_contacts', 'synonymous_poss',
                 'missense_poss', 'synonymous_rate', 'synonymous_obs',
-                'missense_rate', 'missense_obs'
+                'missense_rate', 'missense_obs', 'permutation_mean', 'permutation_sd'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)
