@@ -7,6 +7,8 @@
     database used wasn't up to date. However, if there exists a structure or
     homology model for the protein of interest, its COSMIS scores can still be
     computed using this script.
+    This script assumes that residues in the PDB file are numbered according to
+    the amino acid sequence in UniProt.
     @author: Bian Li
     @contact: bian.li@vanderbilt.edu
     @change: Last modified 2/12/2021.
@@ -292,7 +294,7 @@ def main():
 
     # get the coding sequence of the transcript
     try:
-        transcript_cds = ensembl_cds_dict[transcript].seq
+        transcript_cds = ensembl_cds_dict[transcript]
     except KeyError:
         print(
             '''No CDS found in Ensembl CDS database! 
@@ -303,20 +305,26 @@ def main():
     if transcript_cds is None:
         try:
             ccds_id = transcript_variants[transcript]['ccds'][0]
-            transcript_cds = ccds_dict[ccds_id].seq
+            transcript_cds = ccds_dict[ccds_id]
         except KeyError:
             print('ERROR: No CDS found in CCDS database!')
             sys.exit(1)
 
-    # stop if the CDS is invalid
-    if len(transcript_cds) / 3 != len(transcript_pep_seq) + 1:
-        print('ERROR: incomplete CDS for', transcript)
-        sys.exit(1)
-
     # check that the CDS does not contain invalid nucleotides
-    if any([x not in {'A', 'T', 'C', 'G'} for x in set(transcript_cds)]):
+    if seq_utils.is_valid_cds(transcript_cds):
         print('ERROR: invalid CDS for', transcript_cds)
         sys.exit(1)
+
+    uniprot_ids = transcript_variants[transcript]['swissprot']
+    if len(uniprot_ids) > 1:
+        print(
+            'ERROR: more than one UniProt IDs found for transcript '
+            '%s: %s', transcript, ','.join(uniprot_ids)
+        )
+        sys.exit(1)
+
+    # get the UniProt ID
+    uniprot_id = uniprot_ids[0]
 
     # print message
     print(
@@ -336,8 +344,8 @@ def main():
     all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
 
     # get mutation rates and expected counts for each codon
-    codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
-    all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds)
+    codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds.seq)
+    all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds.seq)
     
     # tabulate variants at each site
     # missense_counts and synonymous_counts are dictionary that maps
@@ -393,9 +401,8 @@ def main():
         # compute the fraction of expected missense variants
         cosmis_scores.append(
             [
-                transcript, ensp_id, seq_pos, seq_aa, seq_seps,
-                len(contacts_pdb_pos),
-                total_synonyms_poss, total_missense_poss,
+                transcript, ensp_id, uniprot_id, seq_pos, seq_aa, seq_seps,
+                len(contacts_pdb_pos), total_synonyms_poss, total_missense_poss,
                 '%.3e' % total_synonymous_rate, total_synonymous_obs,
                 '%.3e' % total_missense_rate, total_missense_obs
             ]
@@ -403,9 +410,9 @@ def main():
 
     with open(file=args.output_file, mode='wt') as opf:
         header = [
-            'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa', 'seq_separations',
-            'num_contacts', 'synonymous_poss', 'missense_poss',
-            'synonymous_rate', 'synonymous_obs',
+            'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa',
+            'seq_separations', 'num_contacts', 'synonymous_poss',
+            'missense_poss', 'synonymous_rate', 'synonymous_obs',
             'missense_rate', 'missense_obs'
         ]
         csv_writer = csv.writer(opf, delimiter='\t')

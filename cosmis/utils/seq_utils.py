@@ -2,6 +2,7 @@
 
 from cosmis.utils.genetic_code import GENETIC_CODE
 from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
+import numpy as np
 
 
 def place_holder():
@@ -436,17 +437,19 @@ def snp_dms(cds):
     return dms_variants
 
 
-def dn_ds(cds):
+def count_ns_sites(cds):
     """
+    Count the number of nonsynonymous and synonymous sites in the given cds.
 
     Parameters
     ----------
     cds : str
+        Coding DNA sequence.
 
     Returns
     -------
     tuple
-        N, S, dN, dS
+        Number of nonsynonymous and synonymous sites as a tuple.
 
     """
     # make sure that the given CDS is valid
@@ -465,7 +468,7 @@ def dn_ds(cds):
         wt_aa = GENETIC_CODE[codon]
         for k, x in enumerate(codon):
             for y in {'A', 'T', 'C', 'G'} - {x}:
-                var_codon = codon[:k] + y + codon[y+1:]
+                var_codon = codon[:k] + y + codon[k+1:]
                 var_aa = GENETIC_CODE[var_codon]
                 if wt_aa != var_aa:
                     n += 1.0 / 3
@@ -501,4 +504,53 @@ def get_uniprot_aa_seq(uniprot_id):
         if not l.startswith('>'):
             aa_seq += l.strip()
     return aa_seq
+
+
+def get_missense_sites(variants):
+    """
+
+    Parameters
+    ----------
+    variants
+
+    Returns
+    -------
+
+    """
+    mis_sites = set()
+    for variant in variants:
+        vv, _, _ = variant
+        w = vv[0]
+        v = vv[-1]
+        if w != v:
+            mis_sites.add(int(vv[1:-1]))
+    return mis_sites
+
+
+def permute_missense(m, l, p=None, n=10000):
+    """
+    To be added ...
+
+    Parameters
+    ----------
+    m
+    l
+    p
+    n
+
+    Returns
+    -------
+
+    """
+    if not (p is None) and l != len(p):
+        raise ValueError('')
+    # normalize p
+    p = p / np.sum(p)
+    missense_matrix = []
+    for _ in range(n):
+        v = np.zeros(l)
+        m_sites = np.random.choice(range(l), m, replace=False, p=p)
+        v[m_sites] = 1
+        missense_matrix.append(v)
+    return np.stack(missense_matrix)
 

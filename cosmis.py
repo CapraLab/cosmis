@@ -396,9 +396,6 @@ def main():
                 logging.critical('%s was skipped ...', transcript)
                 continue
 
-            # tabulate variants at each site
-            missense_counts, synonymous_counts = count_variants(variants)
-
             # get the coding sequence of the transcript
             try:
                 transcript_cds = ensembl_cds_dict[transcript].seq
@@ -435,6 +432,21 @@ def main():
             # calculate expected counts for each codon
             codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
             all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds)
+
+            # tabulate variants at each site
+            missense_counts, synonymous_counts = count_variants(variants)
+
+            # compute the total number of missense variants
+            total_mis_counts = 0
+            for k, v in missense_counts.items():
+                total_mis_counts += v
+
+            # permutation test
+            missense_rates = [x[0] for x in codon_mutation_rates]
+            norm_missense_rates = missense_rates / np.sum(missense_rates)
+            permuted_missense_mutations = seq_utils.permute_missense(
+                total_mis_counts, len(transcript_pep), norm_missense_rates, 10000
+            )
 
             # only compute MTR1D scores if asked on the command-line
             if args.mtr1d:
@@ -576,6 +588,12 @@ def main():
                 except IndexError:
                     print('list index out of range:', i)
                 if contacts_pdb_pos:
+                    mean_missense_counts = np.mean(
+                        permuted_missense_mutations[:, contacts_pdb_pos + [i]].sum(axis=1)
+                    )
+                    sd_missense_counts = np.std(
+                        permuted_missense_mutations[:, contacts_pdb_pos + [i]].sum(axis=1)
+                    )
                     for j in contacts_pdb_pos:
                         # @TODO need to get the corresponding position in ENSP
                         # amino acid sequence using the SIFTS mapping table
@@ -619,7 +637,9 @@ def main():
                             total_synonymous_rate, 
                             total_synonymous_obs, 
                             total_missense_rate, 
-                            total_missense_obs
+                            total_missense_obs,
+                            mean_missense_counts,
+                            sd_missense_counts
                         ]
                     )
                 else:
@@ -630,8 +650,8 @@ def main():
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
                     'num_contacts', 'synonymous_poss', 'missense_poss',
-                    'synonymous_rate', 'synonymous_obs',
-                    'missense_rate', 'missense_obs'
+                    'synonymous_rate', 'synonymous_obs', 'missense_rate',
+                    'missense_obs', 'permutation_mean', 'permutation_sd'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
