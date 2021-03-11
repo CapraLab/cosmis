@@ -366,7 +366,7 @@ def main():
             if len(uniprot_ids) > 1:
                 logging.critical(
                     'ERROR: more than one UniProt IDs found for transcript ' 
-                    '%s: %s',transcript, ','.join(uniprot_ids)
+                    '%s: %s', transcript, ','.join(uniprot_ids)
                 )
                 continue
             
@@ -442,8 +442,6 @@ def main():
                 total_mis_counts += v
 
             # permutation test
-            missense_rates = [x[0] for x in codon_mutation_rates]
-            norm_missense_rates = missense_rates / np.sum(missense_rates)
             permuted_missense_mutations = seq_utils.permute_missense(
                 total_mis_counts, len(transcript_pep)
             )
@@ -594,7 +592,6 @@ def main():
                         # amino acid sequence using the SIFTS mapping table
                         try:
                             ensp_pos = pdb_to_uniprot_mapping[j]
-                            all_ensp_pos.append(ensp_pos)
                         except KeyError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s not found '
@@ -615,10 +612,11 @@ def main():
                         except IndexError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s out of the range '
-                                'of %s codons',
+                                'of %s codons, something must be wrong with SIFTS mapping',
                                 j, pdb_id, pdb_chain, transcript
                             )
-                            break
+                            continue
+                    all_ensp_pos.append(ensp_pos)
                     contact_res_indices = [pos - 1 for pos in all_ensp_pos] + [i - 1]
                     mean_missense_counts = np.mean(
                         permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
@@ -627,7 +625,7 @@ def main():
                         permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
                     )
 
-                    # compute the fraction of expected missense variants
+                    # push results for the current residue
                     cosmis.append(
                         id_fields + 
                         [i, a, pdb_pos, pdb_aa] + 
@@ -637,12 +635,12 @@ def main():
                             num_contacts,
                             total_synonyms_poss,
                             total_missense_poss,
-                            total_synonymous_rate, 
+                            '{:.3e}'.format(total_synonymous_rate),
                             total_synonymous_obs, 
-                            total_missense_rate, 
+                            '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
-                            mean_missense_counts,
-                            sd_missense_counts
+                            '{:.3f}'.format(mean_missense_counts),
+                            '{:.3f}'.format(sd_missense_counts)
                         ]
                     )
                 else:
