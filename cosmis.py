@@ -616,7 +616,7 @@ def main():
                                 j, pdb_id, pdb_chain, transcript
                             )
                             continue
-                    all_ensp_pos.append(ensp_pos)
+                        all_ensp_pos.append(ensp_pos)
                     contact_res_indices = [pos - 1 for pos in all_ensp_pos] + [i - 1]
                     mean_missense_counts = np.mean(
                         permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
