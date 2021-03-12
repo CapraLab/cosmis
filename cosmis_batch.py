@@ -380,13 +380,6 @@ def main():
                 str(x) for x in [i - seq_pos for i in contacts_pdb_pos]
             )
 
-            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
-            permutation_mean = np.mean(
-                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-            )
-            permutation_sd = np.std(
-                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-            )
             total_missense_obs = missense_counts.setdefault(seq_pos, 0)
             total_synonymous_obs = synonymous_counts.setdefault(seq_pos, 0)
             total_missense_poss = all_cds_ns_counts[seq_pos - 1][0]
@@ -407,6 +400,14 @@ def main():
                 except IndexError:
                     valid_case = False
                     break
+                contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
+
+            permutation_mean = np.mean(
+                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+            )
+            permutation_sd = np.std(
+                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+            )
 
             # compute the fraction of expected missense variants
             cosmis.append(
