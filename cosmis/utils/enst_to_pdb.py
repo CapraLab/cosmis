@@ -11,7 +11,7 @@
 
 import json
 from argparse import ArgumentParser
-from ..mapping.ensembl_uniprot_pdb import EnsemblUniProtPDB
+from cosmis.mapping.ensembl_uniprot_pdb import EnsemblUniProtPDB
 
 
 def parse_cmd():
