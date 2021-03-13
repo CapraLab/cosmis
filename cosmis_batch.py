@@ -400,8 +400,10 @@ def main():
                 except IndexError:
                     valid_case = False
                     break
-                contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
+            if not valid_case:
+                break
 
+            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
             permutation_mean = np.mean(
                 permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
             )
