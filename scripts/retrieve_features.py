@@ -312,7 +312,7 @@ def main():
     output_dir = os.path.abspath(configs['output_dir'])
 
     # create SIFTS mapping table
-    sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'])
+    sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'], configs['pdb_dir'])
 
     # compute the contact set features for each transcript
     with open(args.transcripts, 'rt') as ipf:
@@ -584,9 +584,9 @@ def main():
                             pos_count_syn += counts_cds[ensp_pos - 1][0]
                             prob_mis += probs_cds[ensp_pos - 1][1]
                             pos_count_mis += counts_cds[ensp_pos - 1][0]
-                            cs_phylop_scores.extend(
-                                transcript_phylop_scores[ensp_pos - 1][3]
-                            )
+                            # cs_phylop_scores.extend(
+                            #     transcript_phylop_scores[ensp_pos - 1][3]
+                            # )
                         except IndexError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s out of the range '

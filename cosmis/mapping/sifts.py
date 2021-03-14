@@ -376,6 +376,7 @@ class SIFTS:
             print('ERROR reading', xml_file)
             return None
 
+        print('{} already exists locally.'.format(xml_file))
         xml_ns = XMLNamespaces(entry=SIFTS_XML_SCHEMA)
         all_res = list(
             xml_mapping.getroot().iterfind(
