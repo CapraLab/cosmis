@@ -327,7 +327,7 @@ def main():
     output_dir = os.path.abspath(configs['output_dir'])
 
     # create SIFTS mapping table
-    sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'])
+    sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'], configs['pdb_dir'])
 
     # set output file suffix
     if args.mtr1d:
@@ -650,8 +650,10 @@ def main():
                         [
                             seq_seps, 
                             num_contacts + 1,
-                            syn_var_sites, total_synonymous_sites,
-                            mis_var_sites, total_missense_sites,
+                            syn_var_sites, 
+                            '{:.3f}'.format(total_synonymous_sites),
+                            mis_var_sites, 
+                            '{:.3f}'.format(total_missense_sites),
                             total_synonyms_poss,
                             total_missense_poss,
                             '{:.3e}'.format(total_synonymous_rate),
@@ -659,7 +661,9 @@ def main():
                             '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
                             '{:.3f}'.format(mean_missense_counts),
-                            '{:.3f}'.format(sd_missense_counts)
+                            '{:.3f}'.format(sd_missense_counts),
+                            total_mis_counts,
+                            len(transcript_pep),
                         ]
                     )
                 else:
@@ -673,7 +677,8 @@ def main():
                     'mis_var_sites', 'total_mis_sites',
                     'synonymous_poss', 'missense_poss',
                     'synonymous_rate', 'synonymous_obs', 'missense_rate',
-                    'missense_obs', 'permutation_mean', 'permutation_sd'
+                    'missense_obs', 'permutation_mean', 'permutation_sd',
+                    'enst_mis_counts', 'ensp_length'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)

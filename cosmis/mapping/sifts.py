@@ -229,7 +229,7 @@ class SIFTS:
                     )}
                 )
             else:  # create mapping from SIFTS XML mapping file
-                mapping = self.pdb_to_uniprot_xml(pdb_id, pdb_chain)
+                mapping = self.pdb_to_uniprot_xml(pdb_id, pdb_chain, uniprot_id)
                 break
 
         return mapping
