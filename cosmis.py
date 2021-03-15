@@ -4,97 +4,25 @@
 To add a brief summary of this script.
 """
 
-import os, csv
+import csv
 import gzip
 import json
 import logging
-import urllib
-import numpy as np
-from collections import defaultdict
+import os
+import warnings
 from argparse import ArgumentParser
+from collections import defaultdict
+
+import numpy as np
+from Bio import BiopythonWarning
+from Bio import SeqIO
+from Bio.PDB import is_aa
+from Bio.SeqUtils import seq1
+
 from cosmis.mapping.sifts import SIFTS
 from cosmis.utils import pdb_utils, seq_utils
-from Bio import SeqIO
-from Bio.SeqUtils import seq1
-from Bio.PDB import is_aa
 
-from Bio import BiopythonWarning
-import warnings
 warnings.simplefilter('ignore', BiopythonWarning)
-
-
-def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
-    """
-
-    Parameters
-    ----------
-    pos : int
-        Sequence position.
-    ns_counts : dict
-
-    syn_counts : dict
-
-    expected_counts : list
-
-    window : int
-        Window size.
-
-    Returns
-    -------
-    float
-
-
-    """
-    total_ns_obs = 0
-    total_syn_obs = 0
-    total_ns_exp = 0
-    total_syn_exp = 0
-    # handle the special case of the first 15 residues
-    if pos < 16:
-        for i in range(31):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            total_ns_exp += expected_counts[i][0]
-            total_syn_exp += expected_counts[i][1]
-    # handle the special case of the last 15 residues
-    elif pos > len(expected_counts) - 15:
-        for i in range(len(expected_counts) - 31, len(expected_counts)):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            total_ns_exp += expected_counts[i][0]
-            total_syn_exp += expected_counts[i][1]
-    else:
-        for i in range(pos - window // 2, pos + window // 2 + 1):
-            try:
-                total_ns_obs += ns_counts[i]
-            except KeyError:
-                total_ns_obs += 0
-            try:
-                total_syn_obs += syn_counts[i]
-            except KeyError:
-                total_syn_obs += 0
-            if i > 1 or i < len(expected_counts):
-                total_ns_exp += expected_counts[i - 1][0]
-                total_syn_exp += expected_counts[i - 1][1]
-    try:
-        mtr1d = (total_ns_obs / (total_ns_obs + total_syn_obs)) / \
-            (total_ns_exp / (total_ns_exp + total_syn_exp))
-    except ZeroDivisionError:
-        mtr1d = 0
-
-    return total_ns_obs, total_syn_obs, mtr1d
 
 
 def parse_cmd():
@@ -132,11 +60,6 @@ def parse_cmd():
     parser.add_argument(
         '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
         help='''Whether to overwrite already computed COSMIS scores.'''
-    )
-    parser.add_argument(
-        '--mtr1d', dest='mtr1d', required=False, default=False, action='store_true', 
-        help='''If specified, computes COSMIS scores (a.k.a. MTR) implemented 
-        according to Traynelis et al., Genome Research, 2017.'''
     )
     parser.add_argument(
         '-v', '--verbose', dest='verbose', required=False, action='store_true', 
@@ -323,17 +246,21 @@ def main():
     with open(configs['enst_to_pdb'], 'rt') as ipf:
         enst_to_pdb = json.load(ipf)
 
+    # get phylop scores
+    print('Loading PhyloP scores ...')
+    with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
+        enst_to_phylop = json.load(ipf)
+
+    # genomic coordinates of transcripts
+    print('Loading transcript genomic coordinates ...')
+    with gzip.open(configs['enst_to_coord'], 'rt') as ipf:
+        enst_to_coord = json.load(ipf)
+
     # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
 
     # create SIFTS mapping table
     sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'], configs['pdb_dir'])
-
-    # set output file suffix
-    if args.mtr1d:
-        suffix = '_mtr1ds.tsv'
-    else:
-        suffix = '_cosmis.tsv'
 
     # compute the COSMIS scores for each transcript
     with open(args.transcripts, 'rt') as ipf:
@@ -341,7 +268,7 @@ def main():
             transcript = transcript.strip()
             print('Processing transcript %s' % transcript)
             cosmis = []
-            cosmis_file = os.path.join(output_dir, transcript + suffix)
+            cosmis_file = os.path.join(output_dir, transcript + '_cosmis.tsv')
             # skip if it was already computed and overwrite not requested
             if os.path.exists(cosmis_file) and not args.overwrite:
                 print('Scores for %s already exist, skipped.' % transcript)
@@ -429,6 +356,13 @@ def main():
                 print(transcript_cds)
                 continue
 
+            # get the phyloP scores for the current transcript
+            try:
+                transcript_phylop_scores = enst_to_phylop[transcript]['phylop']
+            except KeyError:
+                print('No phyloP scores are available for {}'.format(transcript))
+                continue
+
             # calculate expected counts for each codon
             codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
             all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
@@ -454,34 +388,6 @@ def main():
             permuted_missense_mutations = seq_utils.permute_missense(
                 total_mis_counts, len(transcript_pep)
             )
-
-            # only compute MTR1D scores if asked on the command-line
-            if args.mtr1d:
-                """
-                @TODO to set the number of expected counts here
-                """
-                expected_counts = None
-                for i, a in enumerate(transcript_pep, start=1):
-                    cosmis.append(
-                        [transcript, ensp_id, uniprot_id, i, a] +
-                        list(
-                            compute_mtr1d(
-                                i, missense_counts, synonymous_counts,
-                                expected_counts, window=31
-                            )
-                        )
-                    )
-                    
-                with open(cosmis_file, mode='wt') as opf:
-                    header = [
-                        'TRANSCRIPT', 'PROTEIN', 'UNIPROT', 'ENSP_POS', 
-                        'ENSP_AA', 'MISSENSE', 'SYNONYMOUS', 'MTR1D'
-                    ]
-                    csv_writer = csv.writer(opf, delimiter='\t')
-                    csv_writer.writerow(header)
-                    csv_writer.writerows(cosmis)
-                print('Finished calcualting MTR1D scores for %s!' % transcript)
-                continue
 
             # get the PDB ID and PDB chain associated with this transcript
             try:
@@ -596,8 +502,26 @@ def main():
                     total_synonymous_sites = all_cds_ns_sites[i - 1][1]
                     total_synonymous_rate = codon_mutation_rates[i - 1][0]
                     total_missense_rate = codon_mutation_rates[i - 1][1]
+                    phylop_scores = transcript_phylop_scores[i - 1][3]
                 except IndexError:
                     print('list index out of range:', i)
+                    continue
+
+                # get sequence context of the contact set
+                genome_coords = enst_to_coord[transcript]['genome_coord'][i - 1][3]
+                try:
+                    seq_context = seq_utils.get_codon_seq_context(
+                        contacts_pdb_pos + [i], transcript_cds
+                    )
+                except IndexError:
+                    break
+
+                # compute the GC content of the sequence context
+                if len(seq_context) == 0:
+                    print('No nucleotides were found in sequence context!')
+                    continue
+                gc_fraction = seq_utils.gc_content(seq_context)
+
                 if contacts_pdb_pos:
                     all_ensp_pos = []
                     for j in contacts_pdb_pos:
@@ -656,12 +580,14 @@ def main():
                             '{:.3f}'.format(total_missense_sites),
                             total_synonyms_poss,
                             total_missense_poss,
+                            '{:.3f}'.format(gc_fraction),
                             '{:.3e}'.format(total_synonymous_rate),
                             total_synonymous_obs, 
                             '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
                             '{:.3f}'.format(mean_missense_counts),
                             '{:.3f}'.format(sd_missense_counts),
+                            '{:.3f}'.format(np.mean(phylop_scores)),
                             total_mis_counts,
                             len(transcript_pep),
                         ]
@@ -675,10 +601,10 @@ def main():
                     'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
                     'num_contacts', 'syn_var_sites', 'total_syn_sites',
                     'mis_var_sites', 'total_mis_sites',
-                    'synonymous_poss', 'missense_poss',
+                    'synonymous_poss', 'missense_poss', 'gc_fraction',
                     'synonymous_rate', 'synonymous_obs', 'missense_rate',
                     'missense_obs', 'permutation_mean', 'permutation_sd',
-                    'enst_mis_counts', 'ensp_length'
+                    'phylop_score', 'enst_mis_counts', 'ensp_length'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
