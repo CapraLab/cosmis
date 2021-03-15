@@ -232,15 +232,15 @@ def main():
     # read transcript to swiss model mapping
     with open(args.input, 'rt') as ipf:
         transcripts = [line.strip().split() for line in ipf]
-        
+
     # compute the MRT scores
     for x, y in transcripts:
         transcript = x
         pdb_file = 'data/swiss-model/SWISS-MODEL_Repository/' + y + '.pdb'
         pdb_chain = y[-1]
-    
+
         if os.path.exists(
-            os.path.join(output_dir, transcript + '_cosmis.tsv')
+                os.path.join(output_dir, transcript + '_cosmis.tsv')
         ) and not args.overwrite:
             continue
 
@@ -254,7 +254,7 @@ def main():
             ensp_id = transcript_variants[transcript]['ensp'][0]
         except KeyError:
             print(
-                'Transcript %s not found in %s' % 
+                'Transcript %s not found in %s' %
                 (transcript, configs['gnomad_variants'])
             )
             print('Skip to the next transcript...')
@@ -311,35 +311,47 @@ def main():
 
         # print message
         print(
-            'Estimating MRT3D scores for:', 
-            transcript, 
+            'Estimating MRT3D scores for:',
+            transcript,
             ensp_id,
             pdb_file
         )
 
         chain = get_pdb_chain(pdb_file, pdb_chain)
-        
+
         if chain is None:
-            print('ERROR: %s not found in structure: %s!' % (pdb_chain, pdb_file))
+            print(
+                'ERROR: %s not found in structure: %s!' % (pdb_chain, pdb_file))
             print('Skip to the next transcript...')
             continue
 
         all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-        all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
-        
+        all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues,
+                                                         radius=8)
+
         # calculate expected counts for each codon
-        codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
-        all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds)
+        codon_mutation_rates = seq_utils.get_codon_mutation_rates(
+            transcript_cds)
+        all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
+        cds_ns_sites = seq_utils.count_ns_sites(transcript_cds)
 
         if len(codon_mutation_rates) < len(all_aa_residues):
             print('ERROR: peptide sequence has less residues than structure!')
             print('Skip to the next transcript...')
             continue
-        
+
         # tabulate variants at each site
         # missense_counts and synonymous_counts are dictionary that maps
         # amino acid positions to variant counts
         missense_counts, synonymous_counts = count_variants(variants)
+
+        # convert variant count to site variability
+        site_variability_missense = {
+            pos: 1 for pos, _ in missense_counts.items()
+        }
+        site_variability_synonymous = {
+            pos: 1 for pos, _ in synonymous_counts.items()
+        }
 
         # compute the total number of missense variants
         total_mis_counts = 0
@@ -380,6 +392,10 @@ def main():
                 str(x) for x in [i - seq_pos for i in contacts_pdb_pos]
             )
 
+            mis_var_sites = site_variability_missense.setdefault(seq_pos, 0)
+            total_mis_sites = cds_ns_sites[seq_pos - 1][0]
+            syn_var_sites = site_variability_synonymous.setdefault(seq_pos, 0)
+            total_syn_sites = cds_ns_sites[seq_pos - 1][1]
             total_missense_obs = missense_counts.setdefault(seq_pos, 0)
             total_synonymous_obs = synonymous_counts.setdefault(seq_pos, 0)
             total_missense_poss = all_cds_ns_counts[seq_pos - 1][0]
@@ -388,6 +404,8 @@ def main():
             total_missense_rate = codon_mutation_rates[seq_pos - 1][1]
             for j in contacts_pdb_pos:
                 # count the total # observed variants in contacting residues
+                mis_var_sites += site_variability_missense.setdefault(j, 0)
+                syn_var_sites += site_variability_synonymous.setdefault(j, 0)
                 total_missense_obs += missense_counts.setdefault(j, 0)
                 total_synonymous_obs += synonymous_counts.setdefault(j, 0)
 
@@ -397,13 +415,16 @@ def main():
                     total_synonyms_poss += all_cds_ns_counts[j - 1][1]
                     total_synonymous_rate += codon_mutation_rates[j - 1][0]
                     total_missense_rate += codon_mutation_rates[j - 1][1]
+                    total_mis_sites += cds_ns_sites[j - 1][0]
+                    total_syn_sites += cds_ns_sites[j - 1][1]
                 except IndexError:
                     valid_case = False
                     break
             if not valid_case:
                 break
 
-            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [seq_pos - 1]
+            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
+                seq_pos - 1]
             permutation_mean = np.mean(
                 permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
             )
@@ -414,13 +435,12 @@ def main():
             # compute the fraction of expected missense variants
             cosmis.append(
                 [
-                    transcript, ensp_id, seq_pos, seq_aa, seq_seps, num_contacts,
-                    total_synonyms_poss, total_missense_poss,
-                    '{:.3e}'.format(total_synonymous_rate),
-                    total_synonymous_obs,
-                    '{:.3e}'.format(total_missense_rate),
-                    total_missense_obs,
-                    '{:.3f}'.format(permutation_mean),
+                    transcript, ensp_id, seq_pos, seq_aa, seq_seps,
+                    num_contacts + 1, total_synonyms_poss, total_missense_poss,
+                    syn_var_sites, total_syn_sites, mis_var_sites,
+                    total_mis_sites, '{:.3e}'.format(total_synonymous_rate),
+                    total_synonymous_obs, '{:.3e}'.format(total_missense_rate),
+                    total_missense_obs, '{:.3f}'.format(permutation_mean),
                     '{:.3f}'.format(permutation_sd)
                 ]
             )
@@ -429,14 +449,15 @@ def main():
             continue
 
         with open(
-                file=os.path.join(output_dir, transcript + '_cosmis.tsv'),
-                mode='wt'
-            ) as opf:
+            file=os.path.join(output_dir, transcript + '_cosmis.tsv'),
+            mode='wt'
+        ) as opf:
             header = [
                 'transcript_id', 'peptide_id', 'position', 'amino_acid',
-                'seq_separations', 'num_contacts', 'synonymous_poss',
-                'missense_poss', 'synonymous_rate', 'synonymous_obs',
-                'missense_rate', 'missense_obs', 'permutation_mean', 'permutation_sd'
+                'seq_separations', 'num_contacts', 'synonymous_var_sites',
+                'missense_var_sites', 'synonymous_poss', 'missense_poss',
+                'synonymous_rate', 'synonymous_obs', 'missense_rate',
+                'missense_obs', 'permutation_mean', 'permutation_sd'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)

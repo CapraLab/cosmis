@@ -19,7 +19,7 @@ from Bio import SeqIO
 from Bio.SeqUtils import seq1
 from Bio.PDB import is_aa
 from cosmis.utils.seq_utils import get_codon_mutation_rates
-from cosmis.utils.seq_utils import count_cds_ns
+from cosmis.utils.seq_utils import count_poss_ns_variants
 from cosmis.utils.seq_utils import get_codon_seq_context
 from cosmis.utils.seq_utils import gc_content
 from cosmis.utils.seq_utils import count_cg_gc
@@ -419,7 +419,7 @@ def main():
                 continue
 
             # calculate expected counts and mutation probabilities
-            counts_cds = count_cds_ns(transcript_cds)
+            counts_cds = count_poss_ns_variants(transcript_cds)
             probs_cds = get_codon_mutation_rates(transcript_cds)
 
             # get the PDB ID and PDB chain associated with this transcript

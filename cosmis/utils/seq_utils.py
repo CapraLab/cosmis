@@ -91,7 +91,7 @@ def is_valid_cds(seq_record):
     return True
 
 
-def count_cds_ns(cds):
+def count_poss_ns_variants(cds):
     """
 
     Parameters
@@ -461,11 +461,12 @@ def count_ns_sites(cds):
         raise ValueError('Invalid CDS: CDS length is not a multiple of 3.')
 
     # now compute dN and dS
-    n = 0
-    s = 0
+    cds_ns = []
     for i in range(0, len(cds), 3):
         codon = cds[i:i+3]
         wt_aa = GENETIC_CODE[codon]
+        n = 0
+        s = 0
         for k, x in enumerate(codon):
             for y in {'A', 'T', 'C', 'G'} - {x}:
                 var_codon = codon[:k] + y + codon[k+1:]
@@ -474,7 +475,9 @@ def count_ns_sites(cds):
                     n += 1.0 / 3
                 else:
                     s += 1.0 / 3
-    return n, s
+        cds_ns.append((n, s))
+
+    return cds_ns
 
 
 def get_uniprot_aa_seq(uniprot_id):

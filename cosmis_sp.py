@@ -345,7 +345,7 @@ def main():
 
     # get mutation rates and expected counts for each codon
     codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds.seq)
-    all_cds_ns_counts = seq_utils.count_cds_ns(transcript_cds.seq)
+    all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds.seq)
     
     # tabulate variants at each site
     # missense_counts and synonymous_counts are dictionary that maps
