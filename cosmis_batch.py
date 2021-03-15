@@ -436,9 +436,10 @@ def main():
             cosmis.append(
                 [
                     transcript, ensp_id, seq_pos, seq_aa, seq_seps,
-                    num_contacts + 1, total_synonyms_poss, total_missense_poss,
-                    syn_var_sites, total_syn_sites, mis_var_sites,
-                    total_mis_sites, '{:.3e}'.format(total_synonymous_rate),
+                    num_contacts + 1, syn_var_sites, total_syn_sites,
+                    mis_var_sites, total_mis_sites,
+                    total_synonyms_poss, total_missense_poss,
+                    '{:.3e}'.format(total_synonymous_rate),
                     total_synonymous_obs, '{:.3e}'.format(total_missense_rate),
                     total_missense_obs, '{:.3f}'.format(permutation_mean),
                     '{:.3f}'.format(permutation_sd)
@@ -454,8 +455,10 @@ def main():
         ) as opf:
             header = [
                 'transcript_id', 'peptide_id', 'position', 'amino_acid',
-                'seq_separations', 'num_contacts', 'synonymous_var_sites',
-                'missense_var_sites', 'synonymous_poss', 'missense_poss',
+                'seq_separations', 'num_contacts',
+                'synonymous_var_sites', 'total_syn_sites',
+                'missense_var_sites', 'total_mis_sites',
+                'synonymous_poss', 'missense_poss',
                 'synonymous_rate', 'synonymous_obs', 'missense_rate',
                 'missense_obs', 'permutation_mean', 'permutation_sd'
             ]

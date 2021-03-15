@@ -432,9 +432,18 @@ def main():
             # calculate expected counts for each codon
             codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
             all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
+            all_cds_ns_sites = seq_utils.count_ns_sites(transcript_cds)
 
             # tabulate variants at each site
             missense_counts, synonymous_counts = count_variants(variants)
+
+            # convert variant count to site variability
+            site_variability_missense = {
+                pos: 1 for pos, _ in missense_counts.items()
+            }
+            site_variability_synonymous = {
+                pos: 1 for pos, _ in synonymous_counts.items()
+            }
 
             # compute the total number of missense variants
             total_mis_counts = 0
@@ -578,9 +587,13 @@ def main():
 
                 total_missense_obs = missense_counts.setdefault(i, 0)
                 total_synonymous_obs = synonymous_counts.setdefault(i, 0)
+                mis_var_sites = site_variability_missense.setdefault(i, 0)
+                syn_var_sites = site_variability_synonymous.setdefault(i, 0)
                 try:
                     total_missense_poss = all_cds_ns_counts[i - 1][0]
                     total_synonyms_poss = all_cds_ns_counts[i - 1][1]
+                    total_missense_sites = all_cds_ns_sites[i - 1][0]
+                    total_synonymous_sites = all_cds_ns_sites[i - 1][1]
                     total_synonymous_rate = codon_mutation_rates[i - 1][0]
                     total_missense_rate = codon_mutation_rates[i - 1][1]
                 except IndexError:
@@ -603,10 +616,14 @@ def main():
                         # count the total # observed variants in contacting residues
                         total_missense_obs += missense_counts.setdefault(ensp_pos, 0)
                         total_synonymous_obs += synonymous_counts.setdefault(ensp_pos, 0)
+                        mis_var_sites += site_variability_missense.setdefault(ensp_pos, 0)
+                        syn_var_sites += site_variability_synonymous.setdefault(ensp_pos, 0)
                         # count the total # expected variants
                         try:
                             total_missense_poss += all_cds_ns_counts[ensp_pos - 1][0]
                             total_synonyms_poss += all_cds_ns_counts[ensp_pos - 1][1]
+                            total_missense_sites += all_cds_ns_sites[ensp_pos - 1][0]
+                            total_synonymous_sites += all_cds_ns_sites[ensp_pos - 1][1]
                             total_synonymous_rate += codon_mutation_rates[ensp_pos - 1][0]
                             total_missense_rate += codon_mutation_rates[ensp_pos - 1][1]
                         except IndexError:
@@ -632,7 +649,9 @@ def main():
                         [pdb_id, pdb_chain] + 
                         [
                             seq_seps, 
-                            num_contacts,
+                            num_contacts + 1,
+                            syn_var_sites, total_synonymous_sites,
+                            mis_var_sites, total_missense_sites,
                             total_synonyms_poss,
                             total_missense_poss,
                             '{:.3e}'.format(total_synonymous_rate),
@@ -650,7 +669,9 @@ def main():
                 header = [
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
-                    'num_contacts', 'synonymous_poss', 'missense_poss',
+                    'num_contacts', 'syn_var_sites', 'total_syn_sites',
+                    'mis_var_sites', 'total_mis_sites',
+                    'synonymous_poss', 'missense_poss',
                     'synonymous_rate', 'synonymous_obs', 'missense_rate',
                     'missense_obs', 'permutation_mean', 'permutation_sd'
                 ]
