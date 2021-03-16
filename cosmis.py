@@ -251,11 +251,6 @@ def main():
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
 
-    # genomic coordinates of transcripts
-    print('Loading transcript genomic coordinates ...')
-    with gzip.open(configs['enst_to_coord'], 'rt') as ipf:
-        enst_to_coord = json.load(ipf)
-
     # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
 
@@ -508,7 +503,6 @@ def main():
                     continue
 
                 # get sequence context of the contact set
-                genome_coords = enst_to_coord[transcript]['genome_coord'][i - 1][3]
                 try:
                     seq_context = seq_utils.get_codon_seq_context(
                         contacts_pdb_pos + [i], transcript_cds
@@ -601,7 +595,7 @@ def main():
                     'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
                     'num_contacts', 'syn_var_sites', 'total_syn_sites',
                     'mis_var_sites', 'total_mis_sites',
-                    'synonymous_poss', 'missense_poss', 'gc_fraction',
+                    'synonymous_poss', 'missense_poss', 'gc_content',
                     'synonymous_rate', 'synonymous_obs', 'missense_rate',
                     'missense_obs', 'permutation_mean', 'permutation_sd',
                     'phylop_score', 'enst_mis_counts', 'ensp_length'

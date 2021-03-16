@@ -3,7 +3,6 @@
 import os, csv
 import gzip
 import json
-import urllib
 import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
@@ -226,6 +225,11 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
+    # get phylop scores
+    print('Loading PhyloP scores ...')
+    with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
+        enst_to_phylop = json.load(ipf)
+
     # directory where to store the output files
     output_dir = os.path.abspath(configs['output_dir'])
 
@@ -309,13 +313,15 @@ def main():
             print('Skip to the next transcript...')
             continue
 
+        # get the phyloP scores for the current transcript
+        try:
+            transcript_phylop_scores = enst_to_phylop[transcript]['phylop']
+        except KeyError:
+            print('No phyloP scores are available for {}'.format(transcript))
+            continue
+
         # print message
-        print(
-            'Estimating MRT3D scores for:',
-            transcript,
-            ensp_id,
-            pdb_file
-        )
+        print('Computing COSMIS features for:', transcript, ensp_id,pdb_file)
 
         chain = get_pdb_chain(pdb_file, pdb_chain)
 
@@ -402,6 +408,7 @@ def main():
             total_synonyms_poss = all_cds_ns_counts[seq_pos - 1][1]
             total_synonymous_rate = codon_mutation_rates[seq_pos - 1][0]
             total_missense_rate = codon_mutation_rates[seq_pos - 1][1]
+            phylop_scores = transcript_phylop_scores[seq_pos - 1][3]
             for j in contacts_pdb_pos:
                 # count the total # observed variants in contacting residues
                 mis_var_sites += site_variability_missense.setdefault(j, 0)
@@ -423,6 +430,19 @@ def main():
             if not valid_case:
                 break
 
+            try:
+                seq_context = seq_utils.get_codon_seq_context(
+                    contacts_pdb_pos + [seq_pos], transcript_cds
+                )
+            except IndexError:
+                break
+
+            # compute the GC content of the sequence context
+            if len(seq_context) == 0:
+                print('No nucleotides were found in sequence context!')
+                continue
+            gc_fraction = seq_utils.gc_content(seq_context)
+
             contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
                 seq_pos - 1]
             permutation_mean = np.mean(
@@ -436,13 +456,22 @@ def main():
             cosmis.append(
                 [
                     transcript, ensp_id, seq_pos, seq_aa, seq_seps,
-                    num_contacts + 1, syn_var_sites, total_syn_sites,
-                    mis_var_sites, total_mis_sites,
-                    total_synonyms_poss, total_missense_poss,
+                    num_contacts + 1,
+                    syn_var_sites,
+                    '{:.3f}'.format(total_syn_sites),
+                    mis_var_sites,
+                    '{:.3f}'.format(total_mis_sites),
+                    total_synonyms_poss,
+                    total_missense_poss,
+                    '{:.3f}'.format(gc_fraction),
                     '{:.3e}'.format(total_synonymous_rate),
-                    total_synonymous_obs, '{:.3e}'.format(total_missense_rate),
-                    total_missense_obs, '{:.3f}'.format(permutation_mean),
-                    '{:.3f}'.format(permutation_sd)
+                    total_synonymous_obs,
+                    '{:.3e}'.format(total_missense_rate),
+                    total_missense_obs,
+                    '{:.3f}'.format(permutation_mean),
+                    '{:.3f}'.format(permutation_sd),
+                    total_mis_counts,
+                    len(transcript_pep_seq)
                 ]
             )
 
@@ -454,13 +483,14 @@ def main():
             mode='wt'
         ) as opf:
             header = [
-                'transcript_id', 'peptide_id', 'position', 'amino_acid',
+                'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa',
                 'seq_separations', 'num_contacts',
-                'synonymous_var_sites', 'total_syn_sites',
-                'missense_var_sites', 'total_mis_sites',
-                'synonymous_poss', 'missense_poss',
+                'syn_var_sites', 'total_syn_sites',
+                'mis_var_sites', 'total_mis_sites',
+                'synonymous_poss', 'missense_poss', 'gc_content',
                 'synonymous_rate', 'synonymous_obs', 'missense_rate',
-                'missense_obs', 'permutation_mean', 'permutation_sd'
+                'missense_obs', 'permutation_mean', 'permutation_sd',
+                'phylop_score', 'enst_mis_counts', 'ensp_length'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)
