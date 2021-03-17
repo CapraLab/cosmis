@@ -199,7 +199,7 @@ def main():
                     continue
 
             # check that the CDS does not contain invalid nucleotides
-            if seq_utils.is_valid_cds(transcript_cds):
+            if not seq_utils.is_valid_cds(transcript_cds):
                 print('Invalid CDS! Skipped.')
                 continue
 
