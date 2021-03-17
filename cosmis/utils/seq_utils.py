@@ -195,6 +195,26 @@ def get_codon_mutation_rates(cds):
     return mutation_rates
 
 
+def get_transcript_mutation_prob(transcript_cds):
+    """
+
+    Parameters
+    ----------
+    transcript_cds
+
+    Returns
+    -------
+
+    """
+    codon_mutation_prob = get_codon_mutation_rates(transcript_cds)
+    syn_prob = 0
+    mis_prob = 0
+    for probs in codon_mutation_prob:
+        syn_prob += probs[0]
+        mis_prob += probs[1]
+    return syn_prob, mis_prob
+
+
 def compute_mtr1d(pos, ns_counts, syn_counts, expected_counts, window=31):
     """
 

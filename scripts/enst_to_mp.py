@@ -1,116 +1,16 @@
 #!/usr/bin/env python3
 
-
-##################################################
-# This script computes gene-level mutation rates.
-# Hence, the name gmrc.py
-##################################################
-
-
-import sys, os, re, csv
+import os, csv
 import gzip
 import json
 import logging
-import urllib
-import numpy as np
-from collections import defaultdict
 from argparse import ArgumentParser
-from mtr3d.struct.contact import Contact, BACKBONE_ATOMS
-from mtr3d.mapping.sifts import SIFTS
-from mtr3d.mapping.ensembl_uniprot_pdb import EnsemblUniProtPDB
-from mtr3d.utils import pdb_utils
-from mtr3d.utils.genetic_code import GENETIC_CODE
 from Bio import SeqIO
-from Bio.SeqUtils import seq1
-from Bio.PDB import PDBParser, NeighborSearch, is_aa, PDBList
-from mtr3d.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNIQUE
-
 from Bio import BiopythonWarning
 import warnings
+from cosmis.utils import seq_utils
+
 warnings.simplefilter('ignore', BiopythonWarning)
-
-
-def get_codon_mutation_rates(cds):
-    """
-
-    Parameters
-    ----------
-    cds : str
-        Coding sequence.
-
-    Returns
-    -------
-    mutation probabilities : list
-        A list of tuples consisting of synonymous and nonsynonymous mutation 
-        probabilities.
-    """
-    if len(cds) % 3 != 0:
-        raise ValueError('Given CDS length is not a multiple of 3.')
-
-    num_codons = len(cds) // 3
-
-    mutation_rates = []
-    # one nucleotide before and one nucleotide after the codon
-    for codon_number in range(1, num_codons + 1):
-        # determine the codon sequence
-        codon_sequence = cds[(codon_number - 1) * 3:codon_number * 3]
-        
-        synonymous_rate = 0
-        nonsynonymous_rate = 0
-        
-        # determine the mutation rate of the first and the last codons
-        # consider only two mutatable nucleotides
-        if codon_number == 1 or codon_number == num_codons:
-            # first codon
-            if codon_number == 1:
-                sequence_context = cds[:4]
-                # i is the zero-indexed position of the mutated nucleotide
-                for i in range(1, 3):
-                    trinucleotide = sequence_context[i - 1:i + 2]
-                    rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                    for k, v in rates.items():
-                        mutant_sequence = codon_sequence[:i] + k[1] + codon_sequence[i + 1:]
-                        if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                            synonymous_rate += v
-                        elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                            and GENETIC_CODE[mutant_sequence] != 'STOP':
-                            nonsynonymous_rate += v
-            # last codon        
-            else:
-                sequence_context = cds[-4:]
-                # i is the zero-indexed position of the mutated nucleotide
-                for i in range(0, 2):
-                    trinucleotide = sequence_context[i:i + 3]
-                    rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                    for k, v in rates.items():
-                        mutant_sequence = codon_sequence[:i] + k[1] + codon_sequence[i + 1:]
-                        if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                            synonymous_rate += v
-                        elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                            and GENETIC_CODE[mutant_sequence] != 'STOP':
-                            nonsynonymous_rate += v
-
-        # codons other than the first and the last
-        # consider all three mutatable nucleotides
-        else:
-            # one nucleotide before and one nucleotide after the codon
-            sequence_context = cds[(codon_number - 1) * 3 - 1:(codon_number - 1) * 3 + 4]
-            # mutate nucleotide in the codon iteratively
-            for i in range(3):
-                trinucleotide = sequence_context[i:i + 3]
-                rates = MUTATION_RATES_UNIQUE[trinucleotide]
-                for k, v in rates.items():
-                    codon_seq_list = list(codon_sequence)
-                    codon_seq_list[i] = k[1]
-                    mutant_sequence = ''.join(codon_seq_list)
-                    if GENETIC_CODE[codon_sequence] == GENETIC_CODE[mutant_sequence]:
-                        synonymous_rate += v
-                    elif GENETIC_CODE[codon_sequence] != GENETIC_CODE[mutant_sequence] \
-                        and GENETIC_CODE[mutant_sequence] != 'STOP':
-                        nonsynonymous_rate += v
-
-        mutation_rates.append((synonymous_rate, nonsynonymous_rate))
-    return mutation_rates
 
 
 def parse_cmd():
@@ -121,15 +21,6 @@ def parse_cmd():
 
     """
     parser = ArgumentParser()
-    # parser.add_argument('-a', '--aa-seq', dest='aa_sequence', type=str, required=True,
-    #                     help='FASTA file representing the UniProt canonical '
-    #                          'amino acid sequence of the protein')
-    # parser.add_argument('-n', '--non', dest='nonsynonymous', type=str, required=True,
-    #                     help='A tab-delimited file in which each row specifies a'
-    #                          'position-specific count of nonsynonymous variants')
-    # parser.add_argument('-s', '--syn', dest='synonymous', type=str, required=True,
-    #                     help='A tab-delimited file in which each row specifies a '
-    #                          'position-specific count of synonymous variants.')
     parser.add_argument('-c', '--config', dest='config', required=True,
                         type=str, help='A JSON file specifying options.')
     parser.add_argument('-t', '--transcripts', dest='transcripts', type=str,
@@ -214,17 +105,15 @@ def count_variants(variants):
         Total number of synonymous and nonsynonymous variants.
 
     """
-    #
     missense_counts = 0
     synonymous_counts = 0
     for variant in variants:
         vv, ac, an = variant
-        # skip variants whose MAF > 0.01%
+        # skip variants whose MAF > 0.1%
         if int(ac) / int(an) > 0.001:
             continue
         w = vv[0]  # wild-type amino acid
         v = vv[-1]  # mutant amino acid
-        pos = vv[1:-1]  # position in the protein sequence
         if w != v:  # missense variant
             missense_counts += 1
         else:  # synonymous variant
@@ -241,7 +130,7 @@ def main():
     """
     # configure the logging system
     logging.basicConfig(
-        filename='mtr3d.log',
+        filename='enst_to_mp.log',
         level=logging.INFO,
         filemode='w',
         format='%(levelname)s:%(asctime)s:%(message)s'
@@ -258,14 +147,18 @@ def main():
     # ENSEMBL cds
     print('Reading ENSEMBL CDS database ...')
     with gzip.open(configs['ensembl_cds'], 'rt') as cds_handle:
-        ensembl_cds_dict = SeqIO.to_dict(SeqIO.parse(cds_handle, format='fasta'),
-                                 key_function=get_ensembl_accession)
+        ensembl_cds_dict = SeqIO.to_dict(
+            SeqIO.parse(cds_handle, format='fasta'),
+            key_function=get_ensembl_accession
+        )
 
     # CCDS concensus coding sequences
     print('Reading NCBI CCDS database ...')
     with gzip.open(configs['ccds_cds'], 'rt') as ccds_handle:
-        ccds_dict = SeqIO.to_dict(SeqIO.parse(ccds_handle, format='fasta'),
-                                 key_function=get_ccds_accession)
+        ccds_dict = SeqIO.to_dict(
+            SeqIO.parse(ccds_handle, format='fasta'),
+            key_function=get_ccds_accession
+        )
 
     # parse gnomad transcript-level variants
     print('Reading gnomAD variant database ...')
@@ -276,12 +169,10 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
-
     output_dir = os.path.abspath(configs['output_dir'])
 
-
-    # compute the MRT scores for each transcript
-    rate_vs_count = [] 
+    # compute the mutation probabilities and variant counts for each transcript
+    mutation_prob_vs_count = []
     with open(args.transcripts, 'rt') as ipf:
         for transcript in ipf:
             transcript = transcript.strip()
@@ -304,23 +195,14 @@ def main():
                     continue
 
             # check that the CDS does not contain invalid nucleotides
-            if any([x not in {'A', 'T', 'C', 'G'} for x in set(transcript_cds)]):
+            if seq_utils.is_valid_cds(transcript_cds):
                 print('Invalid CDS! Skipped.')
-                print(transcript_cds)
-                continue
-
-            # calculate expected counts for each codon
-            try:
-                codon_mutation_rates = get_codon_mutation_rates(transcript_cds)
-            except ValueError:
                 continue
 
             # determine the total rate for the current transcript
-            synonymous_rate = 0
-            nonsynonymous_rate = 0
-            for rates in codon_mutation_rates:
-                synonymous_rate += rates[0]
-                nonsynonymous_rate += rates[1]
+            syn_prob, mis_prob = seq_utils.get_transcript_mutation_prob(
+                transcript_cds
+            )
 
             # get all variants of this transcript reported in gnomAD
             try:
@@ -331,28 +213,22 @@ def main():
                 continue
 
             # tabulate variants at each site
-            synonymous_count, nonsynonymous_count = count_variants(variants)
-
-            print(transcript, len(transcript_cds) // 3, 
-                '{:.3e}'.format(synonymous_rate), 
-                synonymous_count,
-                '{:.3e}'.format(nonsynonymous_rate), 
-                nonsynonymous_count)
-            rate_vs_count.append([
+            syn_count, mis_count = count_variants(variants)
+            mutation_prob_vs_count.append([
                 transcript, 
                 len(transcript_cds) // 3, 
-                '{:.3e}'.format(synonymous_rate), 
-                synonymous_count,
-                '{:.3e}'.format(nonsynonymous_rate), 
-                nonsynonymous_count
+                '{:.3e}'.format(syn_prob),
+                syn_count,
+                '{:.3e}'.format(mis_prob),
+                mis_count
             ]) 
 
         with open(file=os.path.join(output_dir, args.output), mode='wt') as opf:
-            header = ['TRANSCRIPT', 'LENGTH', 'SYNONYMOUS_RATE', 'SYNONYMOUS_COUNT', 
-                'MISSENSE_RATE', 'MISSENSE_COUNT']
+            header = ['enst_id', 'length', 'syn_prob', 'syn_count',
+                'mis_prob', 'mis_count']
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)
-            csv_writer.writerows(rate_vs_count)
+            csv_writer.writerows(mutation_prob_vs_count)
 
 
 if __name__ == '__main__':

@@ -465,7 +465,7 @@ def main():
                     '{:.3e}'.format(total_missense_rate),
                     total_missense_obs,
                     p_value,
-                    '{:.3f}'.format(np.mean(phylop_scores))
+                    '{:.3f}'.format(np.mean(phylop_scores)),
                     total_mis_counts,
                     len(transcript_pep_seq)
                 ]
