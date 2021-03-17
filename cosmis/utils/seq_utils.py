@@ -56,7 +56,7 @@ def count_codon_ns(codon):
     return missense, synonymous
 
 
-def is_valid_cds(seq_record):
+def is_valid_cds(cds):
     """
     Determines whether a given sequence is a valid transcript sequence or not.
     A valid transcript sequence is defined as one that starts with ATG, ends
@@ -77,15 +77,14 @@ def is_valid_cds(seq_record):
     stop_codons = {'TAG', 'TAA', 'TGA'}
 
     # the following conditionals skip noncanonical transcripts
-    id_fields = seq_record.id.split('|')
-    if not seq_record.seq[:3] == 'ATG':
-        print('The CDS of', id_fields[0], 'does not start with ATG.')
+    if not cds[:3] == 'ATG':
+        print('The given CDS does not start with ATG.')
         return False
-    if seq_record.seq[-3:] not in stop_codons:
-        print('The CDS of', id_fields[0], 'does not have a stop codon.')
+    if cds[-3:] not in stop_codons:
+        print('The given CDS does not have a stop codon.')
         return False
-    if len(seq_record.seq) % 3 != 0:
-        print('The CDS of', id_fields[0], 'is not a multiple of 3.')
+    if len(cds) % 3 != 0:
+        print('The length of the given CDS is not a multiple of 3.')
         return False
 
     return True

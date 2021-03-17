@@ -15,28 +15,32 @@ warnings.simplefilter('ignore', BiopythonWarning)
 
 def parse_cmd():
     """
+    Parse command-line arguments.
 
     Returns
     -------
+    ArgumentParser
+        Parsed command-line arguments.
 
     """
     parser = ArgumentParser()
     parser.add_argument('-c', '--config', dest='config', required=True,
                         type=str, help='A JSON file specifying options.')
     parser.add_argument('-t', '--transcripts', dest='transcripts', type=str,
-                        required=True, help='A list of ENSEMBL transcript IDs, '
-                        'one per line.')
+                        required=True, help='''A list of ENSEMBL transcript IDs, 
+                        one per line.''')
     parser.add_argument('-o', '--output', dest='output', required=False,
-                        type=str, help='Output file to which site-specific MTR '
-                        'values will be written.')
+                        type=str, help='''Output file to which transcript 
+                        mutation probabilities and mutation counts values will 
+                        be written.''')
     parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
-                        action='store_true', help='Whether to overwrite already '
-                        'computed MTR3D scores.')
+                        action='store_true', help='''Whether to overwrite already
+                        computed MTR3D scores.''')
     parser.add_argument('-v', '--verbose', dest='verbose', required=False,
-                        action='store_true', help='Whether to output verbose '
-                        'data: number of contacting residues and number of '
-                        'missense and synonymous variants in the neighborhood'
-                        'of the mutation site.')
+                        action='store_true', help='''Whether to output verbose 
+                        data: number of contacting residues and number of 
+                        missense and synonymous variants in the neighborhood of 
+                        the  mutation site.''')
     return parser.parse_args()
 
 
@@ -208,24 +212,26 @@ def main():
             try:
                 variants = transcript_variants[transcript]['variants']
             except KeyError:
-                logging.critical('No variants found in %s in gnomAD', transcript)
+                logging.critical('No variants found in %s in gnomAD',
+                                 transcript)
                 logging.critical('%s was skipped ...', transcript)
                 continue
 
             # tabulate variants at each site
             syn_count, mis_count = count_variants(variants)
             mutation_prob_vs_count.append([
-                transcript, 
-                len(transcript_cds) // 3, 
+                transcript,
+                len(transcript_cds) // 3 - 1,  # -1 to subtract stop codon
                 '{:.3e}'.format(syn_prob),
                 syn_count,
                 '{:.3e}'.format(mis_prob),
                 mis_count
-            ]) 
+            ])
 
         with open(file=os.path.join(output_dir, args.output), mode='wt') as opf:
-            header = ['enst_id', 'length', 'syn_prob', 'syn_count',
-                'mis_prob', 'mis_count']
+            header = [
+                'enst_id', 'length', 'syn_prob', 'syn_count', 'mis_prob', 'mis_count'
+            ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)
             csv_writer.writerows(mutation_prob_vs_count)
