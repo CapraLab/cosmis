@@ -445,12 +445,8 @@ def main():
 
             contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
                 seq_pos - 1]
-            permutation_mean = np.mean(
-                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-            )
-            permutation_sd = np.std(
-                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-            )
+            n = np.sum(permuted_missense_mutations[:, contact_res_indices].sum(axis=1) <= total_mis_sites)
+            p_value = n / 10000
 
             # compute the fraction of expected missense variants
             cosmis.append(
@@ -468,8 +464,8 @@ def main():
                     total_synonymous_obs,
                     '{:.3e}'.format(total_missense_rate),
                     total_missense_obs,
-                    '{:.3f}'.format(permutation_mean),
-                    '{:.3f}'.format(permutation_sd),
+                    p_value,
+                    '{:.3f}'.format(np.mean(phylop_scores))
                     total_mis_counts,
                     len(transcript_pep_seq)
                 ]
@@ -489,7 +485,7 @@ def main():
                 'mis_var_sites', 'total_mis_sites',
                 'synonymous_poss', 'missense_poss', 'gc_content',
                 'synonymous_rate', 'synonymous_obs', 'missense_rate',
-                'missense_obs', 'permutation_mean', 'permutation_sd',
+                'missense_obs', 'p_value',
                 'phylop_score', 'enst_mis_counts', 'ensp_length'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
