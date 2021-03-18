@@ -579,14 +579,14 @@ def permute_missense(m, length, p=None, n=10000):
     return np.stack(missense_matrix)
 
 
-def read_enst_mp_count(file):
+def read_enst_mp_count(input_file):
     """
     Reads transcript-level mutation probabilities and variant counts from disk
     file in which records are delimited by tabs.
 
     Parameters
     ----------
-    file : str
+    input_file : str
         File containing transcript-level mutation probabilities and variant counts.
 
     Returns
@@ -598,7 +598,7 @@ def read_enst_mp_count(file):
 
     """
     enst_mp_counts = {}
-    with open(file, 'rt') as ipf:
+    with open(input_file, 'rt') as ipf:
         for line in ipf:
             if not line.startswith('ENST'):
                 continue
@@ -618,8 +618,8 @@ def read_enst_mp_count(file):
             # by regressing missense count to missense probability
             mis_count_exp_by_mis = round(float(fields[7]))
 
-        enst_mp_counts[enst_id] = (
-            length, syn_prob, syn_count,
-            mis_prob, mis_count, mis_count_exp_by_syn, mis_count_exp_by_mis
-        )
+            enst_mp_counts[enst_id] = (
+                length, syn_prob, syn_count,
+                mis_prob, mis_count, mis_count_exp_by_syn, mis_count_exp_by_mis
+            )
     return enst_mp_counts

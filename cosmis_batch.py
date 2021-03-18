@@ -179,8 +179,6 @@ def count_variants(variants):
     return missense_counts, synonymous_counts
 
 
-
-
 def main():
     """
 
@@ -359,7 +357,11 @@ def main():
         }
 
         # compute the total number of missense variants
-        total_exp_mis_counts = enst_mp_counts[transcript][-2]
+        try:
+            total_exp_mis_counts = enst_mp_counts[transcript][-2]
+        except KeyError:
+            print('Transcript {} not found in {}'.format(transcript, configs['enst_mp_counts']))
+            continue
 
         # permutation test
         permuted_missense_mutations = seq_utils.permute_missense(
@@ -444,7 +446,7 @@ def main():
                 seq_pos - 1]
             n = np.sum(
                 permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-                <= total_mis_sites
+                <= total_missense_obs
             )
             p_value = n / 10000
 
@@ -486,8 +488,8 @@ def main():
                 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
                 'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content',
                 'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs',
-                'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_exp',
-                'enst_length'
+                'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
+                'enst_mis_exp', 'enst_length'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)
