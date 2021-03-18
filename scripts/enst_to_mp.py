@@ -112,10 +112,10 @@ def count_variants(variants):
     missense_counts = 0
     synonymous_counts = 0
     for variant in variants:
-        vv, ac, an = variant
+        vv, _, _ = variant
         # skip variants whose MAF > 0.1%
-        if int(ac) / int(an) > 0.001:
-            continue
+        # if int(ac) / int(an) > 0.001:
+        #    continue
         w = vv[0]  # wild-type amino acid
         v = vv[-1]  # mutant amino acid
         if w != v:  # missense variant
