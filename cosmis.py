@@ -178,13 +178,13 @@ def count_variants(variants):
     missense_counts = defaultdict(int)
     synonymous_counts = defaultdict(int)
     for variant in variants:
-        vv, ac, an = variant
+        vv, _, _ = variant
         w = vv[0]  # wild-type amino acid
         v = vv[-1]  # mutant amino acid
         pos = vv[1:-1]  # position in the protein sequence
         # only consider rare variants
-        if int(ac) / int(an) > 0.001:
-            continue
+        # if int(ac) / int(an) > 0.001:
+        #    continue
         if w != v:  # missense variant
             missense_counts[int(pos)] += 1
         else:  # synonymous variant
@@ -250,6 +250,10 @@ def main():
     print('Loading PhyloP scores ...')
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
+
+    # get transcript mutation probabilities and variant counts
+    print('Reading transcript mutation probabilities and variant counts ...')
+    enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
 
     # get the directory where all output files will be stored
     output_dir = os.path.abspath(configs['output_dir'])
@@ -375,13 +379,18 @@ def main():
             }
 
             # compute the total number of missense variants
-            total_mis_counts = 0
-            for k, v in missense_counts.items():
-                total_mis_counts += v
+            try:
+                total_exp_mis_counts = enst_mp_counts[transcript][-2]
+            except KeyError:
+                print(
+                    'Transcript {} not found in {}'.format(
+                        transcript, configs['enst_mp_counts'])
+                )
+                continue
 
             # permutation test
             permuted_missense_mutations = seq_utils.permute_missense(
-                total_mis_counts, len(transcript_pep)
+                total_exp_mis_counts, len(transcript_pep)
             )
 
             # get the PDB ID and PDB chain associated with this transcript
@@ -553,12 +562,12 @@ def main():
                             continue
                         all_ensp_pos.append(ensp_pos)
                     contact_res_indices = [pos - 1 for pos in all_ensp_pos] + [i - 1]
-                    mean_missense_counts = np.mean(
-                        permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+                    n = np.sum(
+                        permuted_missense_mutations[:, contact_res_indices].sum(
+                            axis=1)
+                        <= total_missense_obs
                     )
-                    sd_missense_counts = np.std(
-                        permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-                    )
+                    p_value = n / 10000
 
                     # push results for the current residue
                     cosmis.append(
@@ -579,10 +588,11 @@ def main():
                             total_synonymous_obs, 
                             '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
-                            '{:.3f}'.format(mean_missense_counts),
-                            '{:.3f}'.format(sd_missense_counts),
+                            p_value,
                             '{:.3f}'.format(np.mean(phylop_scores)),
-                            total_mis_counts,
+                            enst_mp_counts[transcript][2],
+                            enst_mp_counts[transcript][4],
+                            total_exp_mis_counts,
                             len(transcript_pep),
                         ]
                     )
@@ -594,11 +604,11 @@ def main():
                     'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
                     'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
                     'num_contacts', 'syn_var_sites', 'total_syn_sites',
-                    'mis_var_sites', 'total_mis_sites',
-                    'synonymous_poss', 'missense_poss', 'gc_content',
-                    'synonymous_rate', 'synonymous_obs', 'missense_rate',
-                    'missense_obs', 'permutation_mean', 'permutation_sd',
-                    'phylop_score', 'enst_mis_counts', 'ensp_length'
+                    'mis_var_sites', 'total_mis_sites', 'cs_syn_poss',
+                    'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
+                    'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'p_value',
+                    'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
+                    'enst_mis_exp', 'ensp_length'
                 ]
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
