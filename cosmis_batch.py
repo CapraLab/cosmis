@@ -165,18 +165,20 @@ def count_variants(variants):
     missense_counts = defaultdict(int)
     synonymous_counts = defaultdict(int)
     for variant in variants:
-        vv, ac, an = variant
+        vv, _, _ = variant
         w = vv[0]  # wild-type amino acid
         v = vv[-1]  # mutant amino acid
         pos = vv[1:-1]  # position in the protein sequence
         # only consider rare variants
-        if int(ac) / int(an) > 0.001:
-            continue
+        # if int(ac) / int(an) > 0.001:
+        #    continue
         if w != v:  # missense variant
             missense_counts[int(pos)] += 1
         else:  # synonymous variant
             synonymous_counts[int(pos)] += 1
     return missense_counts, synonymous_counts
+
+
 
 
 def main():
@@ -229,6 +231,10 @@ def main():
     print('Loading PhyloP scores ...')
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
+
+    # get transcript mutation probabilities and variant counts
+    print('Reading transcript mutation probabilities and variant counts ...')
+    enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
 
     # directory where to store the output files
     output_dir = os.path.abspath(configs['output_dir'])
@@ -302,15 +308,8 @@ def main():
             continue
 
         # stop if the CDS is invalid
-        if len(transcript_cds) / 3 != len(transcript_pep_seq) + 1:
-            print('ERROR: incomplete CDS for', transcript)
-            print('Skip to the next transcript...')
-            continue
-
-        # check that the CDS does not contain invalid nucleotides
-        if any([x not in {'A', 'T', 'C', 'G'} for x in set(transcript_cds)]):
-            print('ERROR: invalid CDS for', transcript_cds)
-            print('Skip to the next transcript...')
+        if not seq_utils.is_valid_cds(transcript_cds):
+            print('Skip to the next transcript ...')
             continue
 
         # get the phyloP scores for the current transcript
@@ -360,13 +359,11 @@ def main():
         }
 
         # compute the total number of missense variants
-        total_mis_counts = 0
-        for k, v in missense_counts.items():
-            total_mis_counts += v
+        total_exp_mis_counts = enst_mp_counts[transcript][-2]
 
         # permutation test
         permuted_missense_mutations = seq_utils.permute_missense(
-            total_mis_counts, len(transcript_pep_seq)
+            total_exp_mis_counts, len(transcript_pep_seq)
         )
 
         # index all contacts by residue ID
@@ -445,7 +442,10 @@ def main():
 
             contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
                 seq_pos - 1]
-            n = np.sum(permuted_missense_mutations[:, contact_res_indices].sum(axis=1) <= total_mis_sites)
+            n = np.sum(
+                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+                <= total_mis_sites
+            )
             p_value = n / 10000
 
             # compute the fraction of expected missense variants
@@ -466,7 +466,9 @@ def main():
                     total_missense_obs,
                     p_value,
                     '{:.3f}'.format(np.mean(phylop_scores)),
-                    total_mis_counts,
+                    enst_mp_counts[transcript][2],
+                    enst_mp_counts[transcript][4],
+                    total_exp_mis_counts,
                     len(transcript_pep_seq)
                 ]
             )
@@ -480,13 +482,12 @@ def main():
         ) as opf:
             header = [
                 'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa',
-                'seq_separations', 'num_contacts',
-                'syn_var_sites', 'total_syn_sites',
-                'mis_var_sites', 'total_mis_sites',
-                'synonymous_poss', 'missense_poss', 'gc_content',
-                'synonymous_rate', 'synonymous_obs', 'missense_rate',
-                'missense_obs', 'p_value',
-                'phylop_score', 'enst_mis_counts', 'ensp_length'
+                'seq_separations', 'num_contacts', 'syn_var_sites',
+                'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
+                'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content',
+                'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs',
+                'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_exp',
+                'enst_length'
             ]
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(header)

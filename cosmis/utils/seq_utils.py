@@ -549,14 +549,14 @@ def get_missense_sites(variants):
     return mis_sites
 
 
-def permute_missense(m, l, p=None, n=10000):
+def permute_missense(m, length, p=None, n=10000):
     """
     To be added ...
 
     Parameters
     ----------
     m
-    l
+    length
     p
     n
 
@@ -564,16 +564,62 @@ def permute_missense(m, l, p=None, n=10000):
     -------
 
     """
-    if not (p is None) and l != len(p):
+    if not (p is None) and length != len(p):
         raise ValueError('')
     # normalize p
     if p is not None:
         p = p / np.sum(p)
     missense_matrix = []
     for _ in range(n):
-        v = np.zeros(l)
-        m_sites = np.random.choice(range(l), m, replace=True, p=p)
-        v[m_sites] = 1
+        v = np.zeros(length)
+        m_sites = np.random.choice(range(length), m, replace=True, p=p)
+        for s in m_sites:
+            v[s] += 1
         missense_matrix.append(v)
     return np.stack(missense_matrix)
 
+
+def read_enst_mp_count(file):
+    """
+    Reads transcript-level mutation probabilities and variant counts from disk
+    file in which records are delimited by tabs.
+
+    Parameters
+    ----------
+    file : str
+        File containing transcript-level mutation probabilities and variant counts.
+
+    Returns
+    -------
+    dict
+        A dictionary indexed by transcript IDs. Each indexed value is a tuple
+        of length, syn_prob, syn_count, mis_prob, mis_count,
+        mis_count_exp_by_syn, mis_count_exp_by_mis.
+
+    """
+    enst_mp_counts = {}
+    with open(file, 'rt') as ipf:
+        for line in ipf:
+            if not line.startswith('ENST'):
+                continue
+            fields = line.split('\t')
+            enst_id = fields[0]
+            length = int(fields[1])
+            syn_prob = float(fields[2])
+            syn_count = int(fields[3])
+            mis_prob = float(fields[4])
+            mis_count = int(fields[5])
+
+            # expected missense count predicted using a model fitted by
+            # by regressing synonymous count to synonymous probability
+            mis_count_exp_by_syn = round(float(fields[6]))
+
+            # expected missense count predicted using a model fitted by
+            # by regressing missense count to missense probability
+            mis_count_exp_by_mis = round(float(fields[7]))
+
+        enst_mp_counts[enst_id] = (
+            length, syn_prob, syn_count,
+            mis_prob, mis_count, mis_count_exp_by_syn, mis_count_exp_by_mis
+        )
+    return enst_mp_counts
