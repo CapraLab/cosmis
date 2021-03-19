@@ -451,7 +451,7 @@ def main():
             pmt_mean = np.mean(pmt)
             pmt_sd = np.std(pmt)
             n = np.sum(pmt <= total_missense_obs)
-            p_value = n / 10000
+            p_value = (n + 1) / 10001
 
             # compute the fraction of expected missense variants
             cosmis.append(
