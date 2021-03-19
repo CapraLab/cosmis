@@ -364,7 +364,8 @@ def main():
             continue
 
         # permutation test
-        p = codon_mutation_rates / np.sum(codon_mutation_rates)
+        codon_mis_probs = [x[1] for x in codon_mutation_rates]
+        p = codon_mis_probs / np.sum(codon_mis_probs)
         permuted_missense_mutations = seq_utils.permute_missense(
             total_exp_mis_counts, len(transcript_pep_seq), p
         )

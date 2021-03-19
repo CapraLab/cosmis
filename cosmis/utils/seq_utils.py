@@ -565,7 +565,9 @@ def permute_missense(m, length, p=None, n=10000):
 
     """
     if not (p is None) and length != len(p):
-        raise ValueError('')
+        raise ValueError(
+            'Peptide length did not match probability length {} != {}'.format(length, len(p))
+        )
     # normalize p
     if p is not None:
         p = p / np.sum(p)
