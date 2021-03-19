@@ -451,7 +451,7 @@ def main():
             pmt_mean = np.mean(pmt)
             pmt_sd = np.std(pmt)
             n = np.sum(pmt <= total_missense_obs)
-            p_value = n / 10000
+            p_value = (n + 1) / 10001
 
             # compute the fraction of expected missense variants
             cosmis.append(
@@ -469,8 +469,8 @@ def main():
                     total_synonymous_obs,
                     '{:.3e}'.format(total_missense_rate),
                     total_missense_obs,
-                    '{.3f}'.format(pmt_mean),
-                    '{.3f}'.format(pmt_sd),
+                    '{:.3f}'.format(pmt_mean),
+                    '{:.3f}'.format(pmt_sd),
                     p_value,
                     '{:.3f}'.format(np.mean(phylop_scores)),
                     enst_mp_counts[transcript][2],
