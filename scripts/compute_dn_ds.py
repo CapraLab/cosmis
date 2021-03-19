@@ -7,7 +7,6 @@ from argparse import ArgumentParser
 from collections import defaultdict
 import os
 from Bio.Phylo.PAML import codeml
-from subprocess import Popen, PIPE
 
 
 def parse_cmd_args():
