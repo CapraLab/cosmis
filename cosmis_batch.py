@@ -333,6 +333,7 @@ def main():
                                                          radius=8)
 
         # calculate expected counts for each codon
+        transcript_cds = transcript_cds[:-3]  # remove the stop codon
         codon_mutation_rates = seq_utils.get_codon_mutation_rates(
             transcript_cds)
         all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
@@ -448,7 +449,7 @@ def main():
                 seq_pos - 1]
             pmt = permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
             pmt_mean = np.mean(pmt)
-            pmt_df = np.std(pmt)
+            pmt_sd = np.std(pmt)
             n = np.sum(pmt <= total_missense_obs)
             p_value = n / 10000
 
