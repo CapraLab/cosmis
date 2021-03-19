@@ -1,9 +1,15 @@
 #!/usr/bin/env python3
 
 from Bio import SeqIO
+from Bio import BiopythonWarning
 import gzip
+import warnings
+import logging
 from argparse import ArgumentParser
 from collections import defaultdict
+
+# ignore warnings from Biopython
+warnings.simplefilter('ignore', BiopythonWarning)
 
 
 def parse_cmd_args():
@@ -24,7 +30,7 @@ def parse_cmd_args():
         help='''UCSC 100/30-way sequence alignment file.'''
     )
     parser.add_argument(
-        '-w', '--way', dest='way', type=int, required=True,
+        '-w', '--way', dest='way', type=int, required=True, choices=[30, 100],
         help='''100- or 30-way alignment. This parameter is needed because
         USCS splits the 100-way alignments into exons. The script needs to
         knit the exon sequences together for each transcript.'''
@@ -32,6 +38,10 @@ def parse_cmd_args():
     parser.add_argument(
         '--seq-type', dest='seq_type', type=str, default='nuc',
         choices=['nuc', 'aa'], help='''The type of input sequence.'''
+    )
+    parser.add_argument(
+        '--log', dest='log', type=str, required=False, default='enst_to_aln.log',
+        help='''Log file to store messages from running this script.'''
     )
     return parser.parse_args()
 
@@ -45,6 +55,14 @@ def main():
     """
     # parse command-line arguments
     args = parse_cmd_args()
+
+    # configure the logger
+    logging.basicConfig(
+        filename=args.log,
+        level=logging.CRITICAL,
+        filemode='w',
+        format='%(levelname)s:%(asctime)s:%(message)s'
+    )
 
     # read sequence file
     alignments = defaultdict(dict)
@@ -90,8 +108,13 @@ def main():
                 offset = 3
             else:
                 offset = 1
-            for species, seq in alignments[transcript]['alignment'].items():
-                op_handle.write('>{}\n{}\n'.format(species, seq[:-offset]))
+            try:
+                for species, seq in alignments[transcript]['alignment'].items():
+                    op_handle.write('>{}\n{}\n'.format(species, seq[:-offset]))
+            except KeyError:
+                logging.critical(
+                    'No alignment found for {}.'.format(transcript)
+                )
 
 
 if __name__ == '__main__':
