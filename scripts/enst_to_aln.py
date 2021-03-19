@@ -65,7 +65,7 @@ def main():
     )
 
     # read sequence file
-    alignments = defaultdict(dict)
+    alignments = {}
 
     # read in UCSC multiple sequence alignments
     print('Parsing sequence alignments ...')
@@ -81,7 +81,7 @@ def main():
 
                 # hit the sequence of the last species
                 if species == 'dasNov3':
-                    alignments[enst_id_major]['alignment'] = species_seqs
+                    alignments[enst_id_major] = species_seqs
                     # reset for the next transcript
                     species_seqs = defaultdict(str)
 
@@ -91,9 +91,12 @@ def main():
                     species_seqs[species] += seq_record.seq
 
                 if cur_exon == last_exon and species == 'petMar2':
-                    alignments[enst_id_major]['alignment'] = species_seqs
+                    alignments[enst_id_major] = species_seqs
                     # reset for the next transcript
                     species_seqs = defaultdict(str)
+
+    # print the number of parsed alignments
+    print('Parsed {} alignments from {}.'.format(len(alignments), args.seq_file))
 
     # read in all the Ensembl transcript IDs
     with open(args.transcripts, 'rt') as ip_handle:
@@ -101,20 +104,23 @@ def main():
     print('Read {} transcripts in.'.format(len(input_transcript_ids)))
 
     # write the multiple sequence alignment for each transcript in FASTA format
-    for transcript in input_transcript_ids:
-        aln_file = transcript + '_aln.fasta'
+    for enst_id in input_transcript_ids:
+        try:
+            enst_alignment = alignments[enst_id]
+        except KeyError:
+            logging.critical(
+                'No alignment found for {}.'.format(enst_id)
+            )
+            continue
+
+        aln_file = enst_id + '_aln.fasta'
         with open(aln_file, 'wt') as op_handle:
             if args.seq_type == 'nuc':
                 offset = 3
             else:
                 offset = 1
-            try:
-                for species, seq in alignments[transcript]['alignment'].items():
-                    op_handle.write('>{}\n{}\n'.format(species, seq[:-offset]))
-            except KeyError:
-                logging.critical(
-                    'No alignment found for {}.'.format(transcript)
-                )
+            for species, seq in enst_alignment.items():
+                op_handle.write('>{}\n{}\n'.format(species, seq[:-offset]))
 
 
 if __name__ == '__main__':
