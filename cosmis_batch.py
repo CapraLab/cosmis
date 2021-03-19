@@ -364,8 +364,9 @@ def main():
             continue
 
         # permutation test
+        p = codon_mutation_rates / np.sum(codon_mutation_rates)
         permuted_missense_mutations = seq_utils.permute_missense(
-            total_exp_mis_counts, len(transcript_pep_seq)
+            total_exp_mis_counts, len(transcript_pep_seq), p
         )
 
         # index all contacts by residue ID
@@ -444,10 +445,10 @@ def main():
 
             contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
                 seq_pos - 1]
-            n = np.sum(
-                permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-                <= total_missense_obs
-            )
+            pmt = permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
+            pmt_mean = np.mean(pmt)
+            pmt_df = np.std(pmt)
+            n = np.sum(pmt <= total_missense_obs)
             p_value = n / 10000
 
             # compute the fraction of expected missense variants
@@ -466,6 +467,8 @@ def main():
                     total_synonymous_obs,
                     '{:.3e}'.format(total_missense_rate),
                     total_missense_obs,
+                    '{.3f}'.format(pmt_mean),
+                    '{.3f}'.format(pmt_sd),
                     p_value,
                     '{:.3f}'.format(np.mean(phylop_scores)),
                     enst_mp_counts[transcript][2],
@@ -486,8 +489,8 @@ def main():
                 'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa',
                 'seq_separations', 'num_contacts', 'syn_var_sites',
                 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
-                'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content',
-                'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs',
+                'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
+                'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
                 'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
                 'enst_mis_exp', 'enst_length'
             ]
