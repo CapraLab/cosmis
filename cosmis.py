@@ -192,10 +192,53 @@ def count_variants(variants):
     return missense_counts, synonymous_counts
 
 
+def get_dataset_headers():
+    """
+    Returns column name for each feature of the dataset. Every time a new
+    features is added, this function needs to be updated.
+
+    Returns
+    -------
+
+    """
+    header = [
+        'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 'pdb_pos',
+        'pdb_aa', 'pdb_id', 'chain_id', 'seq_separations', 'num_contacts',
+        'syn_var_sites', 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
+        'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
+        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
+        'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
+        'enst_mis_exp', 'ensp_length'
+    ]
+    return header
+
+
+def get_permutation_stats(pmt_matrix, cs_sites, n_obs):
+    """
+
+    Parameters
+    ----------
+    pmt_matrix
+    cs_sites : list
+    n_obs : int
+
+    Returns
+    -------
+
+    """
+    contact_res_indices = [pos - 1 for pos in cs_sites]
+    pmt = pmt_matrix[:, contact_res_indices].sum(axis=1)
+    pmt_mean = np.mean(pmt)
+    pmt_sd = np.std(pmt)
+    n = np.sum(pmt <= n_obs)
+    p_value = (n + 1) / 10001
+    return pmt_mean, pmt_sd, p_value
+
+
 def main():
     # parse command-line arguments
     args = parse_cmd()
-    
+
     # configure the logging system
     logging.basicConfig(
         filename=args.log,
@@ -343,16 +386,8 @@ def main():
                     continue
 
             # skip if the CDS is incomplete
-            if len(transcript_cds) / 3 != len(transcript_pep) + 1:
-                logging.critical(
-                    'Incomplete CDS for', transcript, '. Skipped.'
-                )
-                continue
-
-            # check that the CDS does not contain invalid nucleotides
-            if any([x not in {'A', 'T', 'C', 'G'} for x in set(transcript_cds)]):
-                logging.critical('Invalid CDS! Skipped.')
-                print(transcript_cds)
+            if not seq_utils.is_valid_cds(transcript_cds):
+                print('Error: Invalid CDS. Shipped {}.'.format(transcript))
                 continue
 
             # get the phyloP scores for the current transcript
@@ -363,6 +398,7 @@ def main():
                 continue
 
             # calculate expected counts for each codon
+            transcript_cds = transcript_cds[:-3]  # remove the stop codon
             codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
             all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
             all_cds_ns_sites = seq_utils.count_ns_sites(transcript_cds)
@@ -389,8 +425,10 @@ def main():
                 continue
 
             # permutation test
+            codon_mis_probs = [x[1] for x in codon_mutation_rates]
+            p = codon_mis_probs / np.sum(codon_mis_probs)
             permuted_missense_mutations = seq_utils.permute_missense(
-                total_exp_mis_counts, len(transcript_pep)
+                total_exp_mis_counts, len(transcript_pep), p
             )
 
             # get the PDB ID and PDB chain associated with this transcript
@@ -465,7 +503,6 @@ def main():
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
                         i, ensp_id, pdb_chain, pdb_id
                     )
-                    cosmis.append(id_fields + [i, a] + [np.nan] * 10)
                     continue
                     
                 # check that the amino acid in ENSP sequence matches 
@@ -482,9 +519,6 @@ def main():
                         'Please first check UniProt sequence is identical to ENSP '
                         'sequence. If this is true, check if there is any oddity '
                         'in the SIFTS residue-level mapping.'
-                    )
-                    cosmis.append(
-                        id_fields + [i, a, pdb_pos, pdb_aa] + [np.nan] * 8
                     )
                     continue
                     # sys.exit(1)
@@ -561,13 +595,11 @@ def main():
                             )
                             continue
                         all_ensp_pos.append(ensp_pos)
-                    contact_res_indices = [pos - 1 for pos in all_ensp_pos] + [i - 1]
-                    n = np.sum(
-                        permuted_missense_mutations[:, contact_res_indices].sum(
-                            axis=1)
-                        <= total_missense_obs
+
+                    # get permutation statistics
+                    pmt_mean, pmt_sd, p_value = get_permutation_stats(
+                        permuted_missense_mutations, all_ensp_pos + [i], total_missense_obs
                     )
-                    p_value = n / 10000
 
                     # push results for the current residue
                     cosmis.append(
@@ -588,7 +620,9 @@ def main():
                             total_synonymous_obs, 
                             '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
-                            p_value,
+                            '{:.3f}'.format(pmt_mean),
+                            '{:.3f}'.format(pmt_sd),
+                            '{:.3e}'.format(p_value),
                             '{:.3f}'.format(np.mean(phylop_scores)),
                             enst_mp_counts[transcript][2],
                             enst_mp_counts[transcript][4],
@@ -600,16 +634,7 @@ def main():
                     continue
 
             with open(file=cosmis_file, mode='wt') as opf:
-                header = [
-                    'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 
-                    'pdb_pos', 'pdb_aa',  'pdb_id', 'chain_id', 'seq_separations',
-                    'num_contacts', 'syn_var_sites', 'total_syn_sites',
-                    'mis_var_sites', 'total_mis_sites', 'cs_syn_poss',
-                    'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
-                    'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'p_value',
-                    'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
-                    'enst_mis_exp', 'ensp_length'
-                ]
+                header = get_dataset_headers()
                 csv_writer = csv.writer(opf, delimiter='\t')
                 csv_writer.writerow(header)
                 csv_writer.writerows(cosmis)
