@@ -471,7 +471,7 @@ def main():
                     total_missense_obs,
                     '{:.3f}'.format(pmt_mean),
                     '{:.3f}'.format(pmt_sd),
-                    p_value,
+                    '{:.3e}'.format(p_value),
                     '{:.3f}'.format(np.mean(phylop_scores)),
                     enst_mp_counts[transcript][2],
                     enst_mp_counts[transcript][4],
