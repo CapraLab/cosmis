@@ -28,7 +28,7 @@ def parse_cmd_args():
         help='''Path to the directory where Rate4Site results are located'''
     )
     parser.add_argument(
-        '-s', 'suffix', dest='suffix', type=str, required=False,
+        '-s', '--suffix', dest='suffix', type=str, required=False,
         default='_orig_rates.txt', help='''Suffix of Rate4Site result files.'''
     )
     parser.add_argument(
@@ -58,7 +58,7 @@ def main():
     with open(args.transcripts, 'rt') as ipf:
         enst_ids = [line.strip() for line in ipf]
 
-    enst_r4s = defaultdict(dict)
+    enst_r4s = defaultdict(list)
     for enst_id in enst_ids:
         r4s_file = os.path.join(args.db_path, enst_id + args.suffix)
         if not os.path.exists(r4s_file):
@@ -68,9 +68,10 @@ def main():
             continue
         with open(r4s_file, 'rt') as ipf:
             for line in ipf:
-                if not line.startswith('#'):
+                line = line.strip()
+                if line and not line.startswith('#'):
                     fields = line.split()
-                    enst_r4s[enst_id][fields[1]] = float(fields[2])
+                    enst_r4s[enst_id].append(float(fields[2]))
 
     # write parsed Rate4Site results to json file
     with open(args.outfile, 'wt') as opf:
