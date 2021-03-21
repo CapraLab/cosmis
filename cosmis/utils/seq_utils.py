@@ -581,6 +581,28 @@ def permute_missense(m, length, p=None, n=10000):
     return np.stack(missense_matrix)
 
 
+def get_permutation_stats(pmt_matrix, cs_sites, n_obs):
+    """
+
+    Parameters
+    ----------
+    pmt_matrix
+    cs_sites : list
+    n_obs : int
+
+    Returns
+    -------
+
+    """
+    contact_res_indices = [pos - 1 for pos in cs_sites]
+    pmt = pmt_matrix[:, contact_res_indices].sum(axis=1)
+    pmt_mean = np.mean(pmt)
+    pmt_sd = np.std(pmt)
+    n = np.sum(pmt <= n_obs)
+    p_value = (n + 1) / 10001
+    return pmt_mean, pmt_sd, p_value
+
+
 def read_enst_mp_count(input_file):
     """
     Reads transcript-level mutation probabilities and variant counts from disk

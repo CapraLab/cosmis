@@ -179,6 +179,27 @@ def count_variants(variants):
     return missense_counts, synonymous_counts
 
 
+def get_dataset_headers():
+    """
+    Returns column name for each feature of the dataset. Every time a new
+    features is added, this function needs to be updated.
+
+    Returns
+    -------
+
+    """
+    header = [
+        'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa',
+        'seq_separations', 'num_contacts', 'syn_var_sites',
+        'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
+        'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
+        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
+        'p_value', 'phylop', 'gerp', 'r4s', 'enst_syn_obs',
+        'enst_mis_obs', 'enst_mis_exp', 'enst_length'
+    ]
+    return header
+
+
 def main():
     """
 
@@ -225,10 +246,20 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
-    # get phylop scores
+    # load phylop scores
     print('Loading PhyloP scores ...')
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
+        
+    # load GERP++ scores
+    print('Loading GERP++ scores ...')
+    with gzip.open(configs['enst_to_gerp'], 'rt') as ipf:
+        enst_to_gerp = json.load(ipf)
+        
+    # load rate4site scores
+    print('Loading rate4site scores ...')
+    with gzip.open(configs['enst_to_r4s'], 'rt') as ipf:
+        enst_to_r4s = json.load(ipf)
 
     # get transcript mutation probabilities and variant counts
     print('Reading transcript mutation probabilities and variant counts ...')
@@ -317,6 +348,20 @@ def main():
             print('No phyloP scores are available for {}'.format(transcript))
             continue
 
+        # get the GERP++ scores for the current transcript
+        try:
+            transcript_gerp_scores = enst_to_gerp[transcript]['gerp']
+        except KeyError:
+            print('No GERP++ scores are available for {}'.format(transcript))
+            continue
+
+        # get the GERP++ scores for the current transcript
+        try:
+            transcript_r4s_scores = enst_to_r4s[transcript]
+        except KeyError:
+            print('No rate4site scores are available for {}'.format(transcript))
+            transcript_r4s_scores = [np.nan] * len(transcript_pep_seq)
+            
         # print message
         print('Computing COSMIS features for:', transcript, ensp_id,pdb_file)
 
@@ -329,8 +374,9 @@ def main():
             continue
 
         all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
-        all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues,
-                                                         radius=8)
+        all_contacts = pdb_utils.search_for_all_contacts(
+            all_aa_residues, radius=8
+        )
 
         # calculate expected counts for each codon
         transcript_cds = transcript_cds[:-3]  # remove the stop codon
@@ -367,7 +413,7 @@ def main():
         # permutation test
         codon_mis_probs = [x[1] for x in codon_mutation_rates]
         p = codon_mis_probs / np.sum(codon_mis_probs)
-        permuted_missense_mutations = seq_utils.permute_missense(
+        pmt_matrix = seq_utils.permute_missense(
             total_exp_mis_counts, len(transcript_pep_seq), p
         )
 
@@ -411,6 +457,8 @@ def main():
             total_synonymous_rate = codon_mutation_rates[seq_pos - 1][0]
             total_missense_rate = codon_mutation_rates[seq_pos - 1][1]
             phylop_scores = transcript_phylop_scores[seq_pos - 1][3]
+            gerp_scores = transcript_gerp_scores[seq_pos - 1][3]
+            r4s_score = transcript_r4s_scores[seq_pos - 1]
             for j in contacts_pdb_pos:
                 # count the total # observed variants in contacting residues
                 mis_var_sites += site_variability_missense.setdefault(j, 0)
@@ -445,14 +493,9 @@ def main():
                 continue
             gc_fraction = seq_utils.gc_content(seq_context)
 
-            contact_res_indices = [pos - 1 for pos in contacts_pdb_pos] + [
-                seq_pos - 1]
-            pmt = permuted_missense_mutations[:, contact_res_indices].sum(axis=1)
-            pmt_mean = np.mean(pmt)
-            pmt_sd = np.std(pmt)
-            n = np.sum(pmt <= total_missense_obs)
-            p_value = (n + 1) / 10001
-
+            pmt_mean, pmt_sd, p_value = seq_utils.get_permutation_stats(
+                pmt_matrix, contacts_pdb_pos + [seq_pos], total_missense_obs
+            )
             # compute the fraction of expected missense variants
             cosmis.append(
                 [
@@ -473,6 +516,8 @@ def main():
                     '{:.3f}'.format(pmt_sd),
                     '{:.3e}'.format(p_value),
                     '{:.3f}'.format(np.mean(phylop_scores)),
+                    '{:.3f}'.format(np.mean(gerp_scores)),
+                    r4s_score,
                     enst_mp_counts[transcript][2],
                     enst_mp_counts[transcript][4],
                     total_exp_mis_counts,
@@ -487,17 +532,8 @@ def main():
             file=os.path.join(output_dir, transcript + '_cosmis.tsv'),
             mode='wt'
         ) as opf:
-            header = [
-                'enst_id', 'ensp_id', 'ensp_pos', 'ensp_aa',
-                'seq_separations', 'num_contacts', 'syn_var_sites',
-                'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
-                'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
-                'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
-                'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
-                'enst_mis_exp', 'enst_length'
-            ]
             csv_writer = csv.writer(opf, delimiter='\t')
-            csv_writer.writerow(header)
+            csv_writer.writerow(get_dataset_headers())
             csv_writer.writerows(cosmis)
 
 
