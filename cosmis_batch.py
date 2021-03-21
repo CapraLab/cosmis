@@ -1,15 +1,18 @@
 #!/usr/bin/env python3
 
-import os, csv
+import csv
 import gzip
 import json
-import numpy as np
-from collections import defaultdict
+import os
 from argparse import ArgumentParser
-from cosmis.utils import pdb_utils, seq_utils
+from collections import defaultdict
+
+import numpy as np
 from Bio import SeqIO
-from Bio.SeqUtils import seq1
 from Bio.PDB import PDBParser, is_aa
+from Bio.SeqUtils import seq1
+
+from cosmis.utils import pdb_utils, seq_utils
 
 
 def parse_cmd():
@@ -355,7 +358,7 @@ def main():
             print('No GERP++ scores are available for {}'.format(transcript))
             continue
 
-        # get the GERP++ scores for the current transcript
+        # get the rate4site scores for the current transcript
         try:
             transcript_r4s_scores = enst_to_r4s[transcript]
         except KeyError:
@@ -458,6 +461,8 @@ def main():
             total_missense_rate = codon_mutation_rates[seq_pos - 1][1]
             phylop_scores = transcript_phylop_scores[seq_pos - 1][3]
             gerp_scores = transcript_gerp_scores[seq_pos - 1][3]
+            if not all(gerp_scores):
+                gerp_scores = [np.nan] * 3
             r4s_score = transcript_r4s_scores[seq_pos - 1]
             for j in contacts_pdb_pos:
                 # count the total # observed variants in contacting residues

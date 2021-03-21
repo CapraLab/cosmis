@@ -207,32 +207,10 @@ def get_dataset_headers():
         'syn_var_sites', 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
         'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
         'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
-        'p_value', 'phylop_score', 'enst_syn_obs', 'enst_mis_obs',
+        'p_value', 'phylop', 'gerp', 'r4s', 'enst_syn_obs', 'enst_mis_obs',
         'enst_mis_exp', 'ensp_length'
     ]
     return header
-
-
-def get_permutation_stats(pmt_matrix, cs_sites, n_obs):
-    """
-
-    Parameters
-    ----------
-    pmt_matrix
-    cs_sites : list
-    n_obs : int
-
-    Returns
-    -------
-
-    """
-    contact_res_indices = [pos - 1 for pos in cs_sites]
-    pmt = pmt_matrix[:, contact_res_indices].sum(axis=1)
-    pmt_mean = np.mean(pmt)
-    pmt_sd = np.std(pmt)
-    n = np.sum(pmt <= n_obs)
-    p_value = (n + 1) / 10001
-    return pmt_mean, pmt_sd, p_value
 
 
 def main():
@@ -293,6 +271,16 @@ def main():
     print('Loading PhyloP scores ...')
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
+
+    # load GERP++ scores
+    print('Loading GERP++ scores ...')
+    with gzip.open(configs['enst_to_gerp'], 'rt') as ipf:
+        enst_to_gerp = json.load(ipf)
+
+    # load GERP++ scores
+    print('Loading rate4site scores ...')
+    with gzip.open(configs['enst_to_r4s'], 'rt') as ipf:
+        enst_to_r4s = json.load(ipf)
 
     # get transcript mutation probabilities and variant counts
     print('Reading transcript mutation probabilities and variant counts ...')
@@ -397,6 +385,22 @@ def main():
                 print('No phyloP scores are available for {}'.format(transcript))
                 continue
 
+            # get the GERP++ scores for the current transcript
+            try:
+                transcript_gerp_scores = enst_to_gerp[transcript]['gerp']
+            except KeyError:
+                print(
+                    'No GERP++ scores are available for {}'.format(transcript))
+                continue
+
+            # get the rate4site scores for the current transcript
+            try:
+                transcript_r4s_scores = enst_to_r4s[transcript]
+            except KeyError:
+                print('No rate4site scores are available for {}'.format(
+                    transcript))
+                transcript_r4s_scores = [np.nan] * len(transcript_pep)
+
             # calculate expected counts for each codon
             transcript_cds = transcript_cds[:-3]  # remove the stop codon
             codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
@@ -427,7 +431,7 @@ def main():
             # permutation test
             codon_mis_probs = [x[1] for x in codon_mutation_rates]
             p = codon_mis_probs / np.sum(codon_mis_probs)
-            permuted_missense_mutations = seq_utils.permute_missense(
+            pmt_matrix = seq_utils.permute_missense(
                 total_exp_mis_counts, len(transcript_pep), p
             )
 
@@ -541,6 +545,10 @@ def main():
                     total_synonymous_rate = codon_mutation_rates[i - 1][0]
                     total_missense_rate = codon_mutation_rates[i - 1][1]
                     phylop_scores = transcript_phylop_scores[i - 1][3]
+                    gerp_scores = transcript_gerp_scores[i - 1][3]
+                    if not all(gerp_scores):
+                        gerp_scores = [np.nan] * 3
+                    r4s_score = transcript_r4s_scores[i - 1]
                 except IndexError:
                     print('list index out of range:', i)
                     continue
@@ -597,8 +605,8 @@ def main():
                         all_ensp_pos.append(ensp_pos)
 
                     # get permutation statistics
-                    pmt_mean, pmt_sd, p_value = get_permutation_stats(
-                        permuted_missense_mutations, all_ensp_pos + [i], total_missense_obs
+                    pmt_mean, pmt_sd, p_value = seq_utils.get_permutation_stats(
+                        pmt_matrix, all_ensp_pos + [i], total_missense_obs
                     )
 
                     # push results for the current residue
@@ -624,6 +632,8 @@ def main():
                             '{:.3f}'.format(pmt_sd),
                             '{:.3e}'.format(p_value),
                             '{:.3f}'.format(np.mean(phylop_scores)),
+                            '{:.3f}'.format(np.mean(gerp_scores)),
+                            r4s_score,
                             enst_mp_counts[transcript][2],
                             enst_mp_counts[transcript][4],
                             total_exp_mis_counts,
