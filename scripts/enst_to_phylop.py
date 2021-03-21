@@ -93,7 +93,7 @@ def main():
             ]
             cds = seq_record[(cds_start-1):cds_end]
             # translate CDS to amino acid sequence
-            if not seq_utils.is_valid_cds(cds):
+            if not seq_utils.is_valid_cds(cds.seq):
                 continue
             aa_seq = seq_utils.translate(cds)
             enst_id = id_fields[0].split('.')[0]
@@ -105,6 +105,8 @@ def main():
     with gzip.open(cmd_args.phylop, 'rt') as ipf:
         for line in ipf:
             chrom, start, end, score = line.strip().split()
+            if not chrom.startswith('chr'):
+                chrom = 'chr' + chrom
             if int(end) - int(start) == 1:
                 phylop_dict[chrom][int(end)] = float(score)
             # this line represents multiple bases collapsed into an interval
@@ -140,13 +142,17 @@ def main():
         for i, a in enumerate(aa_seq):
             codon = str(cds[i*3:(i*3+3)].seq)
             codon_coords = coords[i*3:(i*3+3)]
-            codon_phylop_scores = [
-                phylop_dict.get(chrom).get(int(x), '') for x in codon_coords
-            ]
+            try:
+                codon_phylop_scores = [
+                    phylop_dict.get(chrom).get(int(x), '') for x in codon_coords
+                ]
+            except AttributeError:
+                print('No record found for {}:{}.'.format(chrom, codon_coords))
+                codon_phylop_scores = ['', '', '']
             cds_to_phylop.append(
                 tuple([a, codon, codon_coords, codon_phylop_scores])
             )
-        all_cds_to_phylop[enst_id]['phylop'] = cds_to_phylop
+        all_cds_to_phylop[enst_id]['gerp'] = cds_to_phylop
 
     print('Now writing mapping to {}'.format(cmd_args.output))
     with open(cmd_args.output, 'wt') as opf:
