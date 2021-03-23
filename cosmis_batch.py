@@ -280,10 +280,10 @@ def main():
         transcript = x
         pdb_file = 'data/swiss-model/SWISS-MODEL_Repository/' + y + '.pdb'
         pdb_chain = y[-1]
-
         if os.path.exists(
                 os.path.join(output_dir, transcript + '_cosmis.tsv')
         ) and not args.overwrite:
+            print(transcript + '_cosmis.tsv already exists. Skipped.')
             continue
 
         print('Processing transcript %s' % transcript)
@@ -463,7 +463,12 @@ def main():
             gerp_scores = transcript_gerp_scores[seq_pos - 1][3]
             if not all(gerp_scores):
                 gerp_scores = [np.nan] * 3
-            r4s_score = transcript_r4s_scores[seq_pos - 1]
+            try:
+                r4s_score = transcript_r4s_scores[seq_pos - 1]
+            except IndexError:
+                print('rate4site score length: {}'.format(len(transcript_r4s_scores)))
+                print('Transcript length: {}'.format(len(transcript_pep_seq)))
+                print('Sequence position: {}'.format(seq_pos))
             for j in contacts_pdb_pos:
                 # count the total # observed variants in contacting residues
                 mis_var_sites += site_variability_missense.setdefault(j, 0)

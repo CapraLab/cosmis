@@ -152,7 +152,7 @@ def main():
             cds_to_phylop.append(
                 tuple([a, codon, codon_coords, codon_phylop_scores])
             )
-        all_cds_to_phylop[enst_id]['gerp'] = cds_to_phylop
+        all_cds_to_phylop[enst_id]['phylop'] = cds_to_phylop
 
     print('Now writing mapping to {}'.format(cmd_args.output))
     with open(cmd_args.output, 'wt') as opf:
