@@ -47,6 +47,10 @@ def parse_cmd_args():
         '-o', '--output', dest='output', type=str, required=False,
         default='out.json', help='''Output file.'''
     )
+    parser.add_argument(
+        '--output-format', dest='output_format', required=False, default='json',
+        choices=['json', 'csv'], help='''Format of the output file.'''
+    )
     # do any necessary checks on command-line arguments here
     return parser.parse_args()
 
@@ -156,7 +160,20 @@ def main():
 
     print('Now writing mapping to {}'.format(cmd_args.output))
     with open(cmd_args.output, 'wt') as opf:
-        json.dump(all_cds_to_phylop, fp=opf, indent=4)
+        if cmd_args.output_format == 'json':
+            json.dump(all_cds_to_phylop, fp=opf, indent=4)
+        else:
+            for k, v in all_cds_to_phylop:
+                scores = v['phylop']
+                aa_pos = 1
+                for x in scores:
+                    aa = x[0]
+                    codon = x[1]
+                    coords = ','.join(x[2])
+                    codon_scores = ','.join(x[3])
+                    opf.write(
+                        ','.join([enst, aa_pos, aa, codon, coords, codon_scores])
+                    )
 
 
 if __name__ == '__main__':
