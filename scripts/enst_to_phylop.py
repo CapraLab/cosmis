@@ -163,17 +163,23 @@ def main():
         if cmd_args.output_format == 'json':
             json.dump(all_cds_to_phylop, fp=opf, indent=4)
         else:
-            for k, v in all_cds_to_phylop:
-                scores = v['phylop']
+            for k, v in all_cds_to_phylop.items():
+                try:
+                    scores = v['phylop']
+                except KeyError:
+                    print('No phyloP scores found for {}.'.format(k))
+                    continue
                 aa_pos = 1
                 for x in scores:
                     aa = x[0]
                     codon = x[1]
-                    coords = ','.join(x[2])
-                    codon_scores = ','.join(x[3])
+                    coords = ','.join([str(m) for m in x[2]])
+                    codon_scores = ','.join([str(m) for m in x[3]])
                     opf.write(
-                        ','.join([enst, aa_pos, aa, codon, coords, codon_scores])
+                        ','.join([k, str(aa_pos), aa, codon, coords, codon_scores])
                     )
+                    opf.write('\n')
+                    aa_pos += 1
 
 
 if __name__ == '__main__':
