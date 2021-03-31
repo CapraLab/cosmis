@@ -206,9 +206,9 @@ def get_dataset_headers():
         'pdb_aa', 'pdb_id', 'chain_id', 'seq_separations', 'num_contacts',
         'syn_var_sites', 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
         'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
-        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
-        'p_value', 'phylop', 'gerp', 'r4s', 'enst_syn_obs', 'enst_mis_obs',
-        'enst_mis_exp', 'ensp_length'
+        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'mis_pmt_mean', 'mis_pmt_sd',
+        'mis_p_value', 'syn_pmt_mean', 'syn_pmt_sd', 'syn_p_value', 'phylop',
+        'gerp', 'r4s', 'enst_syn_obs', 'enst_mis_obs', 'enst_mis_exp', 'ensp_length'
     ]
     return header
 
@@ -421,6 +421,7 @@ def main():
             # compute the total number of missense variants
             try:
                 total_exp_mis_counts = enst_mp_counts[transcript][-2]
+                total_exp_syn_counts = enst_mp_counts[transcript][-3]
             except KeyError:
                 print(
                     'Transcript {} not found in {}'.format(
@@ -430,9 +431,14 @@ def main():
 
             # permutation test
             codon_mis_probs = [x[1] for x in codon_mutation_rates]
-            p = codon_mis_probs / np.sum(codon_mis_probs)
-            pmt_matrix = seq_utils.permute_variants(
-                total_exp_mis_counts, len(transcript_pep), p
+            codon_syn_probs = [x[0] for x in codon_mutation_rates]
+            mis_p = codon_mis_probs / np.sum(codon_mis_probs)
+            syn_p = codon_mis_probs / np.sum(codon_syn_probs)
+            mis_pmt_matrix = seq_utils.permute_variants(
+                total_exp_mis_counts, len(transcript_pep), mis_p
+            )
+            syn_pmt_matrix = seq_utils.permute_variants(
+                total_exp_syn_counts, len(transcript_pep), syn_p
             )
 
             # get the PDB ID and PDB chain associated with this transcript
@@ -605,8 +611,11 @@ def main():
                         all_ensp_pos.append(ensp_pos)
 
                     # get permutation statistics
-                    pmt_mean, pmt_sd, p_value = seq_utils.get_permutation_stats(
-                        pmt_matrix, all_ensp_pos + [i], total_missense_obs
+                    mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
+                        mis_pmt_matrix, all_ensp_pos + [i], total_missense_obs
+                    )
+                    syn_pmt_mean, syn_pmt_sd, syn_p_value = seq_utils.get_permutation_stats(
+                        syn_pmt_matrix, all_ensp_pos + [i], total_synonymous_obs
                     )
 
                     # push results for the current residue
@@ -628,9 +637,12 @@ def main():
                             total_synonymous_obs, 
                             '{:.3e}'.format(total_missense_rate),
                             total_missense_obs,
-                            '{:.3f}'.format(pmt_mean),
-                            '{:.3f}'.format(pmt_sd),
-                            '{:.3e}'.format(p_value),
+                            '{:.3f}'.format(mis_pmt_mean),
+                            '{:.3f}'.format(mis_pmt_sd),
+                            '{:.3e}'.format(mis_p_value),
+                            '{:.3f}'.format(syn_pmt_mean),
+                            '{:.3f}'.format(syn_pmt_sd),
+                            '{:.3e}'.format(syn_p_value),
                             '{:.3f}'.format(np.mean(phylop_scores)),
                             '{:.3f}'.format(np.mean(gerp_scores)),
                             r4s_score,
