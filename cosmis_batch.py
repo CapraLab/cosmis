@@ -196,30 +196,28 @@ def get_dataset_headers():
         'seq_separations', 'num_contacts', 'syn_var_sites',
         'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
         'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
-        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'pmt_mean', 'pmt_sd',
-        'p_value', 'phylop', 'gerp', 'r4s', 'enst_syn_obs',
-        'enst_mis_obs', 'enst_mis_exp', 'enst_length'
+        'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'mis_pmt_mean', 'mis_pmt_sd',
+        'mis_p_value', 'syn_pmt_mean', 'syn_pmt_sd', 'syn_p_value', 'phylop',
+        'gerp', 'r4s', 'enst_syn_obs', 'enst_mis_obs', 'enst_mis_exp', 'ensp_length'
     ]
     return header
 
 
-def main():
+def load_datasets(configs):
     """
+
+    Parameters
+    ----------
+    configs
 
     Returns
     -------
 
     """
-    # parse command-line arguments
-    args = parse_cmd()
-
-    # parse configuration file
-    configs = parse_config(args.config)
-
     # ENSEMBL cds
     print('Reading ENSEMBL CDS database ...')
     with gzip.open(configs['ensembl_cds'], 'rt') as cds_handle:
-        ensembl_cds_dict = SeqIO.to_dict(
+        enst_cds_dict = SeqIO.to_dict(
             SeqIO.parse(cds_handle, format='fasta'),
             key_function=get_ensembl_accession
         )
@@ -247,18 +245,18 @@ def main():
         # ENSEMBL transcript IDs are the first level keys and "ccds", "ensp",
         # "swissprot", "variants" are the second level keys. The value of each
         # second-level key is a Python list.
-        transcript_variants = json.load(variant_handle)
+        enst_variants = json.load(variant_handle)
+
+    # load GERP++ scores
+    print('Loading GERP++ scores ...')
+    with gzip.open(configs['enst_to_gerp'], 'rt') as ipf:
+        enst_to_gerp = json.load(ipf)
 
     # load phylop scores
     print('Loading PhyloP scores ...')
     with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
         enst_to_phylop = json.load(ipf)
-        
-    # load GERP++ scores
-    print('Loading GERP++ scores ...')
-    with gzip.open(configs['enst_to_gerp'], 'rt') as ipf:
-        enst_to_gerp = json.load(ipf)
-        
+
     # load rate4site scores
     print('Loading rate4site scores ...')
     with gzip.open(configs['enst_to_r4s'], 'rt') as ipf:
@@ -267,6 +265,27 @@ def main():
     # get transcript mutation probabilities and variant counts
     print('Reading transcript mutation probabilities and variant counts ...')
     enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
+
+    return (enst_cds_dict, ccds_dict, pep_dict, enst_variants, enst_mp_counts,
+            enst_to_gerp, enst_to_phylop, enst_to_r4s)
+
+
+def main():
+    """
+
+    Returns
+    -------
+
+    """
+    # parse command-line arguments
+    args = parse_cmd()
+
+    # parse configuration file
+    configs = parse_config(args.config)
+
+    # load datasets
+    (enst_cds_dict, ccds_dict, pep_dict, enst_variants, enst_mp_counts,
+     enst_to_gerp, enst_to_phylop, enst_to_r4s) = load_datasets(configs)
 
     # directory where to store the output files
     output_dir = os.path.abspath(configs['output_dir'])
@@ -285,7 +304,6 @@ def main():
         ) and not args.overwrite:
             print(transcript + '_cosmis.tsv already exists. Skipped.')
             continue
-
         print('Processing transcript %s' % transcript)
 
         cosmis = []
@@ -293,7 +311,7 @@ def main():
         # get the amino acid sequence of the transcript
         try:
             # Ensembl peptide ID for the transcript
-            ensp_id = transcript_variants[transcript]['ensp'][0]
+            ensp_id = enst_variants[transcript]['ensp'][0]
         except KeyError:
             print(
                 'Transcript %s not found in %s' %
@@ -309,7 +327,7 @@ def main():
 
         # get all variants of this transcript reported in gnomAD
         try:
-            variants = transcript_variants[transcript]['variants']
+            variants = enst_variants[transcript]['variants']
         except KeyError:
             print('No variants found for %s in gnomAD', transcript)
             print('Skip to the next transcript...')
@@ -317,7 +335,7 @@ def main():
 
         # get the coding sequence of the transcript
         try:
-            transcript_cds = ensembl_cds_dict[transcript].seq
+            transcript_cds = enst_cds_dict[transcript].seq
         except KeyError:
             print(
                 '''No CDS found in Ensembl CDS database! 
@@ -327,7 +345,7 @@ def main():
 
         if transcript_cds is None:
             try:
-                ccds_id = transcript_variants[transcript]['ccds'][0]
+                ccds_id = enst_variants[transcript]['ccds'][0]
                 transcript_cds = ccds_dict[ccds_id].seq
             except KeyError:
                 print('ERROR: No CDS found in CCDS database!')
@@ -364,9 +382,9 @@ def main():
         except KeyError:
             print('No rate4site scores are available for {}'.format(transcript))
             transcript_r4s_scores = [np.nan] * len(transcript_pep_seq)
-            
+
         # print message
-        print('Computing COSMIS features for:', transcript, ensp_id,pdb_file)
+        print('Computing COSMIS features for:', transcript, ensp_id, pdb_file)
 
         chain = get_pdb_chain(pdb_file, pdb_chain)
 
@@ -409,15 +427,22 @@ def main():
         # compute the total number of missense variants
         try:
             total_exp_mis_counts = enst_mp_counts[transcript][-2]
+            total_exp_syn_counts = enst_mp_counts[transcript][-3]
         except KeyError:
-            print('Transcript {} not found in {}'.format(transcript, configs['enst_mp_counts']))
+            print('Transcript {} not found in {}'.format(transcript, configs[
+                'enst_mp_counts']))
             continue
 
         # permutation test
         codon_mis_probs = [x[1] for x in codon_mutation_rates]
-        p = codon_mis_probs / np.sum(codon_mis_probs)
-        pmt_matrix = seq_utils.permute_missense(
-            total_exp_mis_counts, len(transcript_pep_seq), p
+        codon_syn_probs = [x[0] for x in codon_mutation_rates]
+        mis_p = codon_mis_probs / np.sum(codon_mis_probs)
+        syn_p = codon_syn_probs / np.sum(codon_syn_probs)
+        mis_pmt_matrix = seq_utils.permute_variants(
+            total_exp_mis_counts, len(transcript_pep_seq), mis_p
+        )
+        syn_pmt_matrix = seq_utils.permute_variants(
+            total_exp_syn_counts, len(transcript_pep_seq), syn_p
         )
 
         # index all contacts by residue ID
@@ -466,7 +491,8 @@ def main():
             try:
                 r4s_score = transcript_r4s_scores[seq_pos - 1]
             except IndexError:
-                print('rate4site score length: {}'.format(len(transcript_r4s_scores)))
+                print('rate4site score length: {}'.format(
+                    len(transcript_r4s_scores)))
                 print('Transcript length: {}'.format(len(transcript_pep_seq)))
                 print('Sequence position: {}'.format(seq_pos))
             for j in contacts_pdb_pos:
@@ -503,8 +529,11 @@ def main():
                 continue
             gc_fraction = seq_utils.gc_content(seq_context)
 
-            pmt_mean, pmt_sd, p_value = seq_utils.get_permutation_stats(
-                pmt_matrix, contacts_pdb_pos + [seq_pos], total_missense_obs
+            mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
+                mis_pmt_matrix, contacts_pdb_pos + [seq_pos], total_missense_obs
+            )
+            syn_pmt_mean, syn_pmt_sd, syn_p_value = seq_utils.get_permutation_stats(
+                syn_pmt_matrix, contacts_pdb_pos + [seq_pos], total_synonymous_obs
             )
             # compute the fraction of expected missense variants
             cosmis.append(
@@ -522,9 +551,12 @@ def main():
                     total_synonymous_obs,
                     '{:.3e}'.format(total_missense_rate),
                     total_missense_obs,
-                    '{:.3f}'.format(pmt_mean),
-                    '{:.3f}'.format(pmt_sd),
-                    '{:.3e}'.format(p_value),
+                    '{:.3f}'.format(mis_pmt_mean),
+                    '{:.3f}'.format(mis_pmt_sd),
+                    '{:.3e}'.format(mis_p_value),
+                    '{:.3f}'.format(syn_pmt_mean),
+                    '{:.3f}'.format(syn_pmt_sd),
+                    '{:.3e}'.format(syn_p_value),
                     '{:.3f}'.format(np.mean(phylop_scores)),
                     '{:.3f}'.format(np.mean(gerp_scores)),
                     r4s_score,
@@ -539,8 +571,8 @@ def main():
             continue
 
         with open(
-            file=os.path.join(output_dir, transcript + '_cosmis.tsv'),
-            mode='wt'
+                file=os.path.join(output_dir, transcript + '_cosmis.tsv'),
+                mode='wt'
         ) as opf:
             csv_writer = csv.writer(opf, delimiter='\t')
             csv_writer.writerow(get_dataset_headers())

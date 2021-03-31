@@ -431,7 +431,7 @@ def main():
             # permutation test
             codon_mis_probs = [x[1] for x in codon_mutation_rates]
             p = codon_mis_probs / np.sum(codon_mis_probs)
-            pmt_matrix = seq_utils.permute_missense(
+            pmt_matrix = seq_utils.permute_variants(
                 total_exp_mis_counts, len(transcript_pep), p
             )
 

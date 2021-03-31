@@ -549,7 +549,7 @@ def get_missense_sites(variants):
     return mis_sites
 
 
-def permute_missense(m, length, p=None, n=10000):
+def permute_variants(m, length, p=None, n=10000):
     """
     To be added ...
 
