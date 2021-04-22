@@ -342,6 +342,8 @@ def main():
 
     # get the UniProt ID
     uniprot_id = uniprot_ids[0]
+    if not uniprot_id:
+        uniprot_id = "NA"  # UniProt IDs may be missing in gnomAD
 
     # print message
     print(
@@ -448,10 +450,10 @@ def main():
                 total_missense_obs,
                 '{:.3f}'.format(mis_pmt_mean),
                 '{:.3f}'.format(mis_pmt_sd),
-                '{:.3f}'.format(mis_p_value),
+                '{:.3e}'.format(mis_p_value),
                 '{:.3f}'.format(syn_pmt_mean),
                 '{:.3f}'.format(syn_pmt_sd),
-                '{:.3f}'.format(syn_p_value),
+                '{:.3e}'.format(syn_p_value),
                 enst_mp_counts[transcript][2],
                 enst_mp_counts[transcript][4],
                 total_exp_syn_counts,
