@@ -61,7 +61,7 @@ def parse_cmd():
         '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
         help='''Whether to overwrite already computed COSMIS scores.'''
     )
-    parser.add_argument(
+    parser.add_argumens(
         '-v', '--verbose', dest='verbose', required=False, action='store_true', 
         help='''Whether to output verbose data: number of contacting residues 
         and number of missense and synonymous variants in the neighborhood of 

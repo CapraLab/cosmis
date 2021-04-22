@@ -15,14 +15,18 @@
 
 """
 
-import sys, csv
+import csv
 import gzip
 import json
-from collections import defaultdict
+import sys
+import numpy as np
 from argparse import ArgumentParser
+from collections import defaultdict
+
 from Bio import SeqIO
-from Bio.SeqUtils import seq1
 from Bio.PDB import PDBParser, is_aa
+from Bio.SeqUtils import seq1
+
 from cosmis.utils import pdb_utils, seq_utils
 
 
@@ -279,6 +283,19 @@ def main():
         )
         sys.exit(1)
 
+    # get transcript mutation probabilities and variant counts
+    print('Reading transcript mutation probabilities and variant counts ...')
+    enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
+
+    try:
+        total_exp_mis_counts = enst_mp_counts[ensp_id][-2]
+        total_exp_syn_counts = enst_mp_counts[ensp_id][-3]
+    except KeyError:
+        print(
+            'Transcript {} not found in {}'.format(ensp_id, configs['enst_mp_counts'])
+        )
+        sys.exit(1)
+
     # get the peptide sequence from peptide sequence database
     cosmis_scores = []
     transcript_pep_seq = get_transcript_pep_seq(
@@ -352,6 +369,18 @@ def main():
     # amino acid positions to variant counts
     missense_counts, synonymous_counts = count_variants(variants)
 
+    # permutation test
+    codon_mis_probs = [x[1] for x in codon_mutation_rates]
+    codon_syn_probs = [x[0] for x in codon_mutation_rates]
+    mis_p = codon_mis_probs / np.sum(codon_mis_probs)
+    syn_p = codon_syn_probs / np.sum(codon_syn_probs)
+    mis_pmt_matrix = seq_utils.permute_variants(
+        total_exp_mis_counts, len(transcript_pep_seq), mis_p
+    )
+    syn_pmt_matrix = seq_utils.permute_variants(
+        total_exp_syn_counts, len(transcript_pep_seq), syn_p
+    )
+
     # index all contacts by residue ID
     indexed_contacts = defaultdict(list)
     for c in all_contacts:
@@ -398,22 +427,46 @@ def main():
             total_synonymous_rate += codon_mutation_rates[j - 1][0]
             total_missense_rate += codon_mutation_rates[j - 1][1]
 
-        # compute the fraction of expected missense variants
+        mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
+            mis_pmt_matrix, contacts_pdb_pos + [seq_pos], total_missense_obs
+        )
+        syn_pmt_mean, syn_pmt_sd, syn_p_value = seq_utils.get_permutation_stats(
+            syn_pmt_matrix, contacts_pdb_pos + [seq_pos], total_synonymous_obs
+        )
+
+        # add entries to be written to disk file
         cosmis_scores.append(
             [
                 transcript, ensp_id, uniprot_id, seq_pos, seq_aa, seq_seps,
-                len(contacts_pdb_pos), total_synonyms_poss, total_missense_poss,
-                '%.3e' % total_synonymous_rate, total_synonymous_obs,
-                '%.3e' % total_missense_rate, total_missense_obs
+                len(contacts_pdb_pos),
+                total_synonyms_poss,
+                total_missense_poss,
+                '%.3e' % total_synonymous_rate,
+                total_synonymous_obs,
+                '%.3e' % total_missense_rate,
+                total_missense_obs,
+                '{:.3f}'.format(mis_pmt_mean),
+                '{:.3f}'.format(mis_pmt_sd),
+                '{:.3f}'.format(mis_p_value),
+                '{:.3f}'.format(syn_pmt_mean),
+                '{:.3f}'.format(syn_pmt_sd),
+                '{:.3f}'.format(syn_p_value),
+                enst_mp_counts[ensp_id][2],
+                enst_mp_counts[ensp_id][4],
+                total_exp_mis_counts,
+                total_exp_syn_counts,
+                len(transcript_pep_seq)
             ]
         )
 
     with open(file=args.output_file, mode='wt') as opf:
         header = [
             'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa',
-            'seq_separations', 'num_contacts', 'synonymous_poss',
-            'missense_poss', 'synonymous_rate', 'synonymous_obs',
-            'missense_rate', 'missense_obs'
+            'seq_separations', 'num_contacts', 'cs_syn_poss', 'cs_mis_poss',
+            'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_prob',
+            'mis_pmt_mean', 'mis_pmt_sd', 'mis_p_value', 'syn_pmt_mean',
+            'syn_pmt_sd', 'syn_p_value', 'enst_syn_obs', 'enst_mis_obs',
+            'enst_mis_exp', 'ensp_length'
         ]
         csv_writer = csv.writer(opf, delimiter='\t')
         csv_writer.writerow(header)
