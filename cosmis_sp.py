@@ -377,6 +377,8 @@ def main():
     codon_syn_probs = [x[0] for x in codon_mutation_rates]
     mis_p = codon_mis_probs / np.sum(codon_mis_probs)
     syn_p = codon_syn_probs / np.sum(codon_syn_probs)
+    if transcript_pep_seq is None:
+        transcript_pep_seq = seq_utils.translate(transcript_cds)
     mis_pmt_matrix = seq_utils.permute_variants(
         total_exp_mis_counts, len(transcript_pep_seq), mis_p
     )
