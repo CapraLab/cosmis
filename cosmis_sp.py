@@ -288,11 +288,11 @@ def main():
     enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
 
     try:
-        total_exp_mis_counts = enst_mp_counts[ensp_id][-2]
-        total_exp_syn_counts = enst_mp_counts[ensp_id][-3]
+        total_exp_mis_counts = enst_mp_counts[transcript][-1]
+        total_exp_syn_counts = enst_mp_counts[transcript][-2]
     except KeyError:
         print(
-            'Transcript {} not found in {}'.format(ensp_id, configs['enst_mp_counts'])
+            'Transcript {} not found in {}'.format(transcript, configs['enst_mp_counts'])
         )
         sys.exit(1)
 
@@ -311,7 +311,7 @@ def main():
 
     # get the coding sequence of the transcript
     try:
-        transcript_cds = ensembl_cds_dict[transcript]
+        transcript_cds = ensembl_cds_dict[transcript].seq
     except KeyError:
         print(
             '''No CDS found in Ensembl CDS database! 
@@ -322,13 +322,13 @@ def main():
     if transcript_cds is None:
         try:
             ccds_id = transcript_variants[transcript]['ccds'][0]
-            transcript_cds = ccds_dict[ccds_id]
+            transcript_cds = ccds_dict[ccds_id].seq
         except KeyError:
             print('ERROR: No CDS found in CCDS database!')
             sys.exit(1)
 
     # check that the CDS does not contain invalid nucleotides
-    if seq_utils.is_valid_cds(transcript_cds):
+    if not seq_utils.is_valid_cds(transcript_cds):
         print('ERROR: invalid CDS for', transcript_cds)
         sys.exit(1)
 
@@ -361,8 +361,9 @@ def main():
     all_contacts = pdb_utils.search_for_all_contacts(all_aa_residues, radius=8)
 
     # get mutation rates and expected counts for each codon
-    codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds.seq)
-    all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds.seq)
+    transcript_cds = transcript_cds[:-3]  # remove the stop codon
+    codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
+    all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
     
     # tabulate variants at each site
     # missense_counts and synonymous_counts are dictionary that maps
@@ -451,10 +452,10 @@ def main():
                 '{:.3f}'.format(syn_pmt_mean),
                 '{:.3f}'.format(syn_pmt_sd),
                 '{:.3f}'.format(syn_p_value),
-                enst_mp_counts[ensp_id][2],
-                enst_mp_counts[ensp_id][4],
-                total_exp_mis_counts,
+                enst_mp_counts[transcript][2],
+                enst_mp_counts[transcript][4],
                 total_exp_syn_counts,
+                total_exp_mis_counts,
                 len(transcript_pep_seq)
             ]
         )
@@ -466,7 +467,7 @@ def main():
             'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_prob',
             'mis_pmt_mean', 'mis_pmt_sd', 'mis_p_value', 'syn_pmt_mean',
             'syn_pmt_sd', 'syn_p_value', 'enst_syn_obs', 'enst_mis_obs',
-            'enst_mis_exp', 'ensp_length'
+            'enst_syn_exp', 'enst_mis_exp', 'ensp_length'
         ]
         csv_writer = csv.writer(opf, delimiter='\t')
         csv_writer.writerow(header)

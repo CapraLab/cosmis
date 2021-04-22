@@ -634,16 +634,16 @@ def read_enst_mp_count(input_file):
             mis_prob = float(fields[4])
             mis_count = int(fields[5])
 
-            # expected missense count predicted using a model fitted by
+            # expected synonymous count predicted using a model fitted by
             # by regressing synonymous count to synonymous probability
-            mis_count_exp_by_syn = round(float(fields[6]))
+            syn_count_exp = round(float(fields[6]))
 
             # expected missense count predicted using a model fitted by
-            # by regressing missense count to missense probability
-            mis_count_exp_by_mis = round(float(fields[7]))
+            # by regressing synonymous count to synonymous probability
+            mis_count_exp = round(float(fields[7]))
 
             enst_mp_counts[enst_id] = (
                 length, syn_prob, syn_count,
-                mis_prob, mis_count, mis_count_exp_by_syn, mis_count_exp_by_mis
+                mis_prob, mis_count, syn_count_exp, mis_count_exp
             )
     return enst_mp_counts
