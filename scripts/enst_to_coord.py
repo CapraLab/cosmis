@@ -92,7 +92,7 @@ def main():
             # translate CDS to amino acid sequence
             if not seq_utils.is_valid_cds(cds):
                 continue
-            aa_seq = seq_utils.translate(cds)
+            aa_seq = seq_utils.translate(cds.seq)
             enst_id = id_fields[0].split('.')[0]
             seqs_dict[enst_id] = (cds, aa_seq)
 

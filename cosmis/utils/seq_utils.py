@@ -409,7 +409,7 @@ def translate(cds):
     aa_seq = []
     # skip the top codon
     for x in range(0, len(cds) - 3, 3):
-        codon = cds[x:(x+3)].seq
+        codon = cds[x:(x+3)]
         aa_seq.append(GENETIC_CODE[codon])
     return ''.join(aa_seq)
 
