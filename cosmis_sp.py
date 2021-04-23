@@ -332,6 +332,10 @@ def main():
         print('ERROR: invalid CDS for', transcript_cds)
         sys.exit(1)
 
+    # get peptide sequence by translating the CDS if peptide sequence isn't in Ensembl
+    if transcript_pep_seq is None:
+        transcript_pep_seq = seq_utils.translate(transcript_cds)
+
     uniprot_ids = transcript_variants[transcript]['swissprot']
     if len(uniprot_ids) > 1:
         print(
@@ -377,8 +381,6 @@ def main():
     codon_syn_probs = [x[0] for x in codon_mutation_rates]
     mis_p = codon_mis_probs / np.sum(codon_mis_probs)
     syn_p = codon_syn_probs / np.sum(codon_syn_probs)
-    if transcript_pep_seq is None:
-        transcript_pep_seq = seq_utils.translate(transcript_cds)
     mis_pmt_matrix = seq_utils.permute_variants(
         total_exp_mis_counts, len(transcript_pep_seq), mis_p
     )
@@ -427,10 +429,14 @@ def main():
             total_synonymous_obs += synonymous_counts.setdefault(j, 0)
 
             # count the total # expected variants
-            total_missense_poss += all_cds_ns_counts[j - 1][0]
-            total_synonyms_poss += all_cds_ns_counts[j - 1][1]
-            total_synonymous_rate += codon_mutation_rates[j - 1][0]
-            total_missense_rate += codon_mutation_rates[j - 1][1]
+            try:
+                total_missense_poss += all_cds_ns_counts[j - 1][0]
+                total_synonyms_poss += all_cds_ns_counts[j - 1][1]
+                total_synonymous_rate += codon_mutation_rates[j - 1][0]
+                total_missense_rate += codon_mutation_rates[j - 1][1]
+            except IndexError:
+                print('{} not in CDS that has {} residues.'.format(j, len(all_cds_ns_counts)))
+                sys.exit(1)
 
         mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
             mis_pmt_matrix, contacts_pdb_pos + [seq_pos], total_missense_obs
@@ -468,7 +474,7 @@ def main():
         header = [
             'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa',
             'seq_separations', 'num_contacts', 'cs_syn_poss', 'cs_mis_poss',
-            'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_prob',
+            'cs_syn_prob', 'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs',
             'mis_pmt_mean', 'mis_pmt_sd', 'mis_p_value', 'syn_pmt_mean',
             'syn_pmt_sd', 'syn_p_value', 'enst_syn_obs', 'enst_mis_obs',
             'enst_syn_exp', 'enst_mis_exp', 'ensp_length'
