@@ -594,8 +594,15 @@ def get_permutation_stats(pmt_matrix, cs_sites, n_obs):
     -------
 
     """
-    contact_res_indices = [pos - 1 for pos in cs_sites]
-    pmt = pmt_matrix[:, contact_res_indices].sum(axis=1)
+    if not isinstance(pmt_matrix, dict):
+        contact_res_indices = [pos - 1 for pos in cs_sites]
+        pmt = pmt_matrix[:, contact_res_indices].sum(axis=1)
+    else:
+        pmt = 0
+        for res in cs_sites:
+            chain_id = res.get_full_id()[2]
+            res_index = res.get_full_id()[3][1] - 1
+            pmt += pmt_matrix[chain_id][:, res_index].sum(axis=1)
     pmt_mean = np.mean(pmt)
     pmt_sd = np.std(pmt)
     n = np.sum(pmt <= n_obs)
