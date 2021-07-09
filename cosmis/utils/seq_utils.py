@@ -602,7 +602,7 @@ def get_permutation_stats(pmt_matrix, cs_sites, n_obs):
         for res in cs_sites:
             chain_id = res.get_full_id()[2]
             res_index = res.get_full_id()[3][1] - 1
-            pmt += pmt_matrix[chain_id][:, res_index].sum(axis=1)
+            pmt += pmt_matrix[chain_id][:, res_index]
     pmt_mean = np.mean(pmt)
     pmt_sd = np.std(pmt)
     n = np.sum(pmt <= n_obs)

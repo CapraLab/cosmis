@@ -244,7 +244,7 @@ def parse_ensembl_pep(file=None):
 
 
 def get_transcript_info(
-        transcript, ensembl_cds_dict, ccds_dict, pep_dict, gnomad_variants
+        transcript, ensembl_cds_dict, ccds_dict, pep_dict, gnomad_variants, enst_mp_counts
     ):
     """
 
@@ -267,16 +267,12 @@ def get_transcript_info(
         )
         sys.exit(1)
 
-    # get transcript mutation probabilities and variant counts
-    print('Reading transcript mutation probabilities and variant counts ...')
-    enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
-
     try:
         total_exp_mis_counts = enst_mp_counts[transcript][-1]
         total_exp_syn_counts = enst_mp_counts[transcript][-2]
     except KeyError:
         print(
-            'Transcript {} not found in {}'.format(transcript, configs['enst_mp_counts'])
+            'Transcript {} not found.'.format(transcript)
         )
         sys.exit(1)
 
@@ -382,12 +378,16 @@ def main():
         # second-level key is a Python list.
         transcript_variants = json.load(variant_handle)
 
+    # get transcript mutation probabilities and variant counts
+    print('Reading transcript mutation probabilities and variant counts ...')
+    enst_mp_counts = seq_utils.read_enst_mp_count(configs['enst_mp_counts'])
+
     # parse chain-transcript pairs
     with open(args.input, 'rt') as ipf:
         chain_transcript_pairs = {
             c: t for c, t in [line.strip().split(':') for line in ipf]
         }
-    transcript = chain_transcript_pairs[args.chain]
+    transcript = chain_transcript_pairs[args.pdb_chain]
 
     #
     cosmis_scores = []
@@ -400,9 +400,9 @@ def main():
     syn_pmt_matrices = {}
     all_cds_ns_counts = {}
     transcript_pep_seqs = {}
-    for c, t in chain_transcript_pairs:
+    for c, t in chain_transcript_pairs.items():
         results = get_transcript_info(
-            t, ensembl_cds_dict, ccds_dict, pep_dict, transcript_variants
+            t, ensembl_cds_dict, ccds_dict, pep_dict, transcript_variants, enst_mp_counts
         )
         ensp_ids[c] = results[0]
         uniprot_ids[c] = results[1]
@@ -413,7 +413,6 @@ def main():
         syn_pmt_matrices[c] = results[6]
         all_cds_ns_counts[c] = results[7]
         transcript_pep_seqs[c] = results[8]
-
     # index all contacts by residue ID
     pdb_parser = PDBParser(PERMISSIVE=1)
     structure = pdb_parser.get_structure(id='NA', file=args.pdb_file)
@@ -424,8 +423,8 @@ def main():
         indexed_contacts[c.get_res_a()].append(c.get_res_b())
         indexed_contacts[c.get_res_b()].append(c.get_res_a())
 
-    chain_id = args.chain
-    chain_struct = structure[0][args.chain]
+    chain_id = args.pdb_chain
+    chain_struct = structure[0][chain_id]
     for seq_pos, seq_aa in enumerate(transcript_pep_seqs[chain_id], start=1):
         # check that the amino acid in ENSP sequence matches
         # that in the PDB structure
@@ -442,17 +441,18 @@ def main():
             print('Residue in ENSP did not match that in PDB at', seq_pos)
             continue
         contact_res = indexed_contacts[res]
-
+        print('Current residue:', res.get_full_id())
         total_missense_obs = mis_counts[chain_id].setdefault(seq_pos, 0)
         total_synonymous_obs = syn_counts[chain_id].setdefault(seq_pos, 0)
         total_missense_poss = all_cds_ns_counts[chain_id][seq_pos - 1][0]
         total_synonyms_poss = all_cds_ns_counts[chain_id][seq_pos - 1][1]
         total_synonymous_rate = codon_mutation_rates[chain_id][seq_pos - 1][0]
         total_missense_rate = codon_mutation_rates[chain_id][seq_pos - 1][1]
-        for res in contact_res:
+        for c_res in contact_res:
             # count the total # observed variants in contacting residues
-            contact_chain_id = res.get_full_id()[2]
-            j = res.get_full_id()[3][1]
+            print('\tContacts:', c_res.get_full_id())
+            contact_chain_id = c_res.get_full_id()[2]
+            j = c_res.get_full_id()[3][1]
             total_missense_obs += mis_counts[contact_chain_id].setdefault(j, 0)
             total_synonymous_obs += syn_counts[contact_chain_id].setdefault(j, 0)
 
@@ -466,7 +466,6 @@ def main():
                 print('{} not in CDS that has {} residues.'.format(j, len(
                     all_cds_ns_counts)))
                 sys.exit(1)
-
         mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
             mis_pmt_matrices, contact_res + [res], total_missense_obs
         )
