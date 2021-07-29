@@ -9,10 +9,12 @@
 """
 
 import os
+import numpy as np
 from Bio.Seq import Seq
 from Bio.PDB import PDBParser, PDBList, PPBuilder
 from Bio.PDB.MMCIF2Dict import MMCIF2Dict
 from Bio.PDB import NeighborSearch
+from Bio.PDB import is_aa
 from cosmis.pdb_struct.contact import Contact
 
 
@@ -188,3 +190,51 @@ def compute_adjacency_matrix(model, cutoff):
 
     """
     pass
+
+
+def compute_distance_matrix(model, atom='CB'):
+    """
+    Computes an L * L matrix consisting the distances between residues.
+
+    Parameters
+    ----------
+    model
+    atom
+
+    Returns
+    -------
+
+    """
+    # get all amino acid residues
+    all_aa_res = []
+    for res in model.get_residues():
+        if is_aa(res):
+            all_aa_res.append(res)
+
+    # get all measurement points
+    measurement_points = []
+    for res in all_aa_res:
+        # get the right atom
+        if atom == 'CB' and res.get_resname() == 'GLY':
+            point = 'CA'
+        else:
+            point = atom
+        try:
+            res_atom = res[point]
+        except KeyError:
+            print('Missing {} in {}. Skipped!'.format(point, res))
+            continue
+        measurement_points.append(res_atom)
+
+    # compute distances
+    res_distances = []
+    for point_a in measurement_points:
+        res_a_distances = []
+        for point_b in measurement_points:
+            # compute the distance between residues A and B
+            a_b_distance = point_a - point_b
+            res_a_distances.append(a_b_distance)
+        res_distances.append(res_a_distances)
+    return np.array(res_distances)
+
+
