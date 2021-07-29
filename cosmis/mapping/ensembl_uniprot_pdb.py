@@ -5,6 +5,7 @@ import pandas as pd
 import urllib
 from cosmis.mapping.sifts import SIFTS
 from cosmis.utils import pdb_utils
+from collections import defaultdict
 
 
 SIFTS_ENSEMBL_URL = 'ftp://ftp.ebi.ac.uk/pub/databases/msd/sifts/flatfiles/' \
@@ -95,20 +96,16 @@ class EnsemblUniProtPDB:
         if hits.empty:
             return None, None
 
-        #
-        pdb_chains = []
+        pdb_chains = defaultdict(list)
         for _, r in hits.iterrows():
             # skip records where PDB ID or CHAIN ID is empty string
             if r['pdb_id'] and r['pdb_chain']:
-                pdb_chains.append((r['pdb_id'], r['pdb_chain']))
+                pdb_chains[r['pdb_id']].append(r['pdb_chain'])
 
         # remove duplicates but keep ordering
         uniq_pdb_chains = []
-        seen = set()
-        for x in pdb_chains:
-            if x not in seen:
-                uniq_pdb_chains.append(x)
-                seen.add(x)
+        for k, v in pdb_chains.items():
+            uniq_pdb_chains.append((k, v[0]))
 
         if not uniq_pdb_chains:
             return None, None
