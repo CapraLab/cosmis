@@ -41,8 +41,8 @@ def parse_cmd():
         help='''A JSON file specifying options.'''
     )
     parser.add_argument(
-        '-t', '--transcripts', dest='transcripts', type=str, required=True, 
-        help='''A list of ENSEMBL transcript IDs, one per line.'''
+        '-u', '--uniprot-ids', dest='uniprot_ids', type=str, required=True, 
+        help='''A list of UniProt IDs, one per line.'''
     )
     parser.add_argument(
         '-r', '--radius', dest='radius', type=float, default=8,
@@ -91,7 +91,7 @@ def get_ensembl_accession(record):
     return parts[0]
 
 
-def get_ccds_accession(record):
+def get_uniprot_accession(record):
     """
 
     Parameters
@@ -103,39 +103,7 @@ def get_ccds_accession(record):
 
     """
     parts = record.id.split('|')
-    return parts[0]
-
-
-def get_transcript_pep_seq(enst_id, ensp_id, pep_dict):
-    """
-
-    Parameters
-    ----------
-    enst_id : str
-
-    ensp_id : str
-
-    pep_dict : dict
-
-    Returns
-    -------
-
-    """
-    # if len(ensp_id) > 1:
-    #     logging.critical(
-    #         'More than one ENSP IDs found for transcript %s: %s',
-    #         enst_id, ensp_id
-    #     )
-    #     sys.exit(1)
-    try:
-        transcript_pep = pep_dict[ensp_id].seq
-    except KeyError:
-        logging.critical('%s not found in given database', ensp_id)
-        logging.critical('%s was skipped ...', enst_id)
-        print('%s not found in given database' % ensp_id)
-        print('%s was skipped ...' % enst_id)
-        return None
-    return transcript_pep
+    return parts[1]
 
 
 def parse_config(config):
@@ -192,6 +160,51 @@ def count_variants(variants):
     return missense_counts, synonymous_counts
 
 
+def retrieve_data(uniprot_id, enst_ids, pep_dict, cds_dict, variant_dict):
+    """
+    """
+    pep_seq = pep_dict[uniprot_id]
+
+    valid_ensts = []
+    for enst_id in enst_ids:
+        cds_seq = cds_dict[enst_id].seq
+        # skip if the CDS is incomplete
+        if not seq_utils.is_valid_cds(cds_seq):
+            print('Error: Invalid CDS.'.format(enst_id))
+            continue
+        if len(pep_seq) == len(cds_seq) // 3 - 1:
+            valid_ensts.append(enst_id)
+    if not valid_ensts:
+        raise ValueError(
+            'Error: {} are not compatible with {}.'.format(enst_ids, uniprot_id)
+        )
+
+    if len(valid_ensts) == 1:
+        enst_id = valid_ensts[0]
+        cds = cds_dict[enst_id].seq
+        if enst_id not in variant_dict.keys():
+           raise KeyError('Error: No record for {} in gnomAD.'.format(uniprot_id))
+        variants = variant_dict[enst_id]['variants']
+        return enst_id, pep_seq, cds, variants
+
+    # if multiple transcripts are valid 
+    # get the one with most variable positions
+    max_len = 0
+    right_enst = ''
+    for enst_id in valid_ensts:
+        try:
+            var_pos = len(variant_dict[enst_id]['variants'])
+        except KeyError:
+            continue
+        if max_len < var_pos:
+            max_len = var_pos
+            right_enst = enst_id
+    cds = cds_dict[right_enst].seq
+    variants = variant_dict[right_enst]['variants']
+
+    return right_enst, pep_seq, cds, variants
+
+
 def get_dataset_headers():
     """
     Returns column name for each feature of the dataset. Every time a new
@@ -202,13 +215,13 @@ def get_dataset_headers():
 
     """
     header = [
-        'enst_id', 'ensp_id', 'uniprot_id', 'ensp_pos', 'ensp_aa', 'pdb_pos',
+        'uniprot_id', 'enst_id', 'uniprot_pos', 'uniprot_aa', 'pdb_pos',
         'pdb_aa', 'pdb_id', 'chain_id', 'seq_separations', 'num_contacts',
         'syn_var_sites', 'total_syn_sites', 'mis_var_sites', 'total_mis_sites',
         'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
         'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'mis_pmt_mean', 'mis_pmt_sd',
-        'mis_p_value', 'syn_pmt_mean', 'syn_pmt_sd', 'syn_p_value', 'phylop',
-        'gerp', 'r4s', 'enst_syn_obs', 'enst_mis_obs', 'enst_mis_exp', 'ensp_length'
+        'mis_p_value', 'syn_pmt_mean', 'syn_pmt_sd', 'syn_p_value',
+        'enst_syn_obs', 'enst_mis_obs', 'enst_syn_exp', 'enst_mis_exp', 'uniprot_length'
     ]
     return header
 
@@ -233,25 +246,17 @@ def main():
     # reading ENSEMBL cds
     print('Reading ENSEMBL CDS database ...')
     with gzip.open(configs['ensembl_cds'], 'rt') as cds_handle:
-        ensembl_cds_dict = SeqIO.to_dict(
+        cds_dict = SeqIO.to_dict(
             SeqIO.parse(cds_handle, format='fasta'),
             key_function=get_ensembl_accession
         )
 
-    # CCDS concensus coding sequences
-    print('Reading NCBI CCDS database ...')
-    with gzip.open(configs['ccds_cds'], 'rt') as ccds_handle:
-        ccds_dict = SeqIO.to_dict(
-            SeqIO.parse(ccds_handle, format='fasta'),
-            key_function=get_ccds_accession
-        )
-
-    # ENSEMBL peptide sequences
-    print('Reading ENSEMBL protein sequence database ...')
-    with gzip.open(configs['ensembl_pep'], 'rt') as pep_handle:
+    # UniProt protein sequences
+    print('Reading UniProt protein sequence database ...')
+    with gzip.open(configs['uniprot_pep'], 'rt') as pep_handle:
         pep_dict = SeqIO.to_dict(
             SeqIO.parse(pep_handle, format='fasta'),
-            key_function=get_ensembl_accession
+            key_function=get_uniprot_accession
         )
 
     # parse gnomad transcript-level variants
@@ -261,26 +266,15 @@ def main():
         # ENSEMBL transcript IDs are the first level keys and "ccds", "ensp",
         # "swissprot", "variants" are the second level keys. The value of each
         # second-level key is a Python list.
-        transcript_variants = json.load(variant_handle)
+        variant_dict = json.load(variant_handle)
 
     # parse the file that maps Ensembl transcript IDs to PDB IDs 
-    with open(configs['enst_to_pdb'], 'rt') as ipf:
-        enst_to_pdb = json.load(ipf)
+    with open(configs['uniprot_to_pdb'], 'rt') as ipf:
+        uniprot_to_pdb = json.load(ipf)
 
-    # get phylop scores
-    print('Loading PhyloP scores ...')
-    with gzip.open(configs['enst_to_phylop'], 'rt') as ipf:
-        enst_to_phylop = json.load(ipf)
-
-    # load GERP++ scores
-    print('Loading GERP++ scores ...')
-    with gzip.open(configs['enst_to_gerp'], 'rt') as ipf:
-        enst_to_gerp = json.load(ipf)
-
-    # load GERP++ scores
-    print('Loading rate4site scores ...')
-    with gzip.open(configs['enst_to_r4s'], 'rt') as ipf:
-        enst_to_r4s = json.load(ipf)
+    # parse the file that maps Ensembl transcript IDs to PDB IDs 
+    with open(configs['uniprot_to_enst'], 'rt') as ipf:
+        uniprot_to_enst = json.load(ipf)
 
     # get transcript mutation probabilities and variant counts
     print('Reading transcript mutation probabilities and variant counts ...')
@@ -290,122 +284,43 @@ def main():
     output_dir = os.path.abspath(configs['output_dir'])
 
     # create SIFTS mapping table
-    sifts_residue_mapping = SIFTS(configs['sifts_residue_mapping_file'], configs['pdb_dir'])
+    sifts_residue_mapping = SIFTS(configs['sifts_uniprot'], configs['pdb_dir'])
 
     # compute the COSMIS scores for each transcript
-    with open(args.transcripts, 'rt') as ipf:
-        for transcript in ipf:
-            transcript = transcript.strip()
-            print('Processing transcript %s' % transcript)
+    with open(args.uniprot_ids, 'rt') as ipf:
+        for line in ipf:
+            uniprot_id = line.strip()
+            print('Processing UniProt ID: %s' % uniprot_id)
             cosmis = []
-            cosmis_file = os.path.join(output_dir, transcript + '_cosmis.tsv')
+            cosmis_file = os.path.join(output_dir, uniprot_id + '_cosmis.tsv')
             # skip if it was already computed and overwrite not requested
             if os.path.exists(cosmis_file) and not args.overwrite:
-                print('Scores for %s already exist, skipped.' % transcript)
+                print('Scores for %s already exist, skipped.' % uniprot_id)
                 continue
-            
-            # get the amino acid sequence of the transcript
+            #
             try:
-                ensp_id = transcript_variants[transcript]['ensp'][0]
+                enst_ids = uniprot_to_enst[uniprot_id]
             except KeyError:
                 logging.critical(
-                    'Transcript %s not found in %s',
-                    transcript, configs['gnomad_variants']
+                    'No transcript IDs were mapped to {}.'.format(uniprot_id)
                 )
                 continue
-
-            transcript_pep = get_transcript_pep_seq(
-                transcript, ensp_id, pep_dict
-            )
-
-            # uniprot id for retrieving the corresponding PDB chain
-            uniprot_ids = transcript_variants[transcript]['swissprot']
-            if len(uniprot_ids) > 1:
-                logging.critical(
-                    'ERROR: more than one UniProt IDs found for transcript ' 
-                    '%s: %s', transcript, ','.join(uniprot_ids)
+            try:
+                right_enst, pep_seq, cds, variants = retrieve_data(
+                    uniprot_id, enst_ids, pep_dict, cds_dict, variant_dict
                 )
+            except ValueError:
+                logging.critical('No valid CDS found for {}.'.format(uniprot_id))
                 continue
-            
-            # get the UniProt ID
-            uniprot_id = uniprot_ids[0]
-
-            if transcript_pep is None:
-                logging.critical(
-                    'No peptide sequence found for %s in %s' % 
-                    (transcript, configs['ensembl_pep']) 
-                )
-
-                # fall back to UniProt sequence
-                uniprot_pep = seq_utils.get_uniprot_aa_seq(uniprot_id)
-                if uniprot_pep is None:
-                    continue
-                else:
-                    transcript_pep = uniprot_pep
-
-            # get all variants of this transcript reported in gnomAD
-            try:
-                variants = transcript_variants[transcript]['variants']
             except KeyError:
-                logging.critical(
-                    'No variants found in %s in gnomAD', transcript
-                )
-                logging.critical('%s was skipped ...', transcript)
+                logging.critical('No transcript record found for {} in gnomAD.'.format(uniprot_id))
                 continue
-
-            # get the coding sequence of the transcript
-            try:
-                transcript_cds = ensembl_cds_dict[transcript].seq
-            except KeyError:
-                logging.critical(
-                    'No CDS found in Ensembl CDS database! Looking for it '
-                    'in the CCDS database ...'                    
-                )
-                transcript_cds = None
-
-            if transcript_cds is None:
-                try:
-                    ccds_id = transcript_variants[transcript]['ccds'][0]
-                    transcript_cds = ccds_dict[ccds_id].seq
-                except KeyError:
-                    logging.critical(
-                        'No CDS found in CCDS database! Skipped.'
-                    )
-                    continue
-
-            # skip if the CDS is incomplete
-            if not seq_utils.is_valid_cds(transcript_cds):
-                print('Error: Invalid CDS. Shipped {}.'.format(transcript))
-                continue
-
-            # get the phyloP scores for the current transcript
-            try:
-                transcript_phylop_scores = enst_to_phylop[transcript]['phylop']
-            except KeyError:
-                print('No phyloP scores are available for {}'.format(transcript))
-                continue
-
-            # get the GERP++ scores for the current transcript
-            try:
-                transcript_gerp_scores = enst_to_gerp[transcript]['gerp']
-            except KeyError:
-                print(
-                    'No GERP++ scores are available for {}'.format(transcript))
-                continue
-
-            # get the rate4site scores for the current transcript
-            try:
-                transcript_r4s_scores = enst_to_r4s[transcript]
-            except KeyError:
-                print('No rate4site scores are available for {}'.format(
-                    transcript))
-                transcript_r4s_scores = [np.nan] * len(transcript_pep)
 
             # calculate expected counts for each codon
-            transcript_cds = transcript_cds[:-3]  # remove the stop codon
-            codon_mutation_rates = seq_utils.get_codon_mutation_rates(transcript_cds)
-            all_cds_ns_counts = seq_utils.count_poss_ns_variants(transcript_cds)
-            all_cds_ns_sites = seq_utils.count_ns_sites(transcript_cds)
+            cds = cds[:-3]  # remove the stop codon
+            codon_mutation_rates = seq_utils.get_codon_mutation_rates(cds)
+            all_cds_ns_counts = seq_utils.count_poss_ns_variants(cds)
+            all_cds_ns_sites = seq_utils.count_ns_sites(cds)
 
             # tabulate variants at each site
             missense_counts, synonymous_counts = count_variants(variants)
@@ -420,12 +335,12 @@ def main():
 
             # compute the total number of missense variants
             try:
-                total_exp_mis_counts = enst_mp_counts[transcript][-2]
-                total_exp_syn_counts = enst_mp_counts[transcript][-3]
+                total_exp_mis_counts = enst_mp_counts[right_enst][-1]
+                total_exp_syn_counts = enst_mp_counts[right_enst][-2]
             except KeyError:
                 print(
                     'Transcript {} not found in {}'.format(
-                        transcript, configs['enst_mp_counts'])
+                        right_enst, configs['enst_mp_counts'])
                 )
                 continue
 
@@ -435,42 +350,42 @@ def main():
             mis_p = codon_mis_probs / np.sum(codon_mis_probs)
             syn_p = codon_mis_probs / np.sum(codon_syn_probs)
             mis_pmt_matrix = seq_utils.permute_variants(
-                total_exp_mis_counts, len(transcript_pep), mis_p
+                total_exp_mis_counts, len(pep_seq), mis_p
             )
             syn_pmt_matrix = seq_utils.permute_variants(
-                total_exp_syn_counts, len(transcript_pep), syn_p
+                total_exp_syn_counts, len(pep_seq), syn_p
             )
 
             # get the PDB ID and PDB chain associated with this transcript
             try:
-                pdb_id, pdb_chain = enst_to_pdb[transcript]
+                pdb_id, pdb_chain = uniprot_to_pdb[uniprot_id]
             except KeyError:
                 logging.critical(
                     '%s not found in given database %s',
-                    transcript, configs['enst_to_pdb']
+                    uniprot_id, configs['uniprot_to_pdb']
                 )
-                logging.critical('%s was skipped ...', transcript)
+                logging.critical('%s was skipped ...', uniprot_id)
                 print('%s not found in given database %s' %
-                      (transcript, configs['enst_to_pdb']))
-                print('%s was skipped ...' % transcript)
+                      (uniprot_id, configs['uniprot_to_pdb']))
+                print('%s was skipped ...' % uniprot_id)
                 continue
 
             # print message
             print(
-                'Estimating COSMIS scores for:', transcript, ensp_id,
-                 uniprot_id, pdb_id, pdb_chain
+                'Estimating COSMIS scores for:', uniprot_id, 
+                right_enst, pdb_id, pdb_chain
             )
 
             chain = pdb_utils.get_pdb_chain(
-                pdb_id, pdb_chain, configs['pdb_dir']
+                pdb_id, pdb_chain, configs['pdb_dir'], 'mmCif'
             )
 
             if chain is None:
-                print('No chain was available for %s' % transcript)
+                print('No chain was available for %s' % uniprot_id)
                 continue
             
             # get all contact pairs in the PDB structure
-            all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa)]
+            all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa, standard=True)]
             all_contacts = pdb_utils.search_for_all_contacts(
                 all_aa_residues, radius=args.radius
             )
@@ -486,18 +401,15 @@ def main():
             uniprot_to_pdb_mapping = sifts_residue_mapping.uniprot_to_pdb(
                 uniprot_id, pdb_id, pdb_chain
             )
-            pdb_to_uniprot_mapping = sifts_residue_mapping.pdb_to_uniprot(
-                pdb_id, pdb_chain, uniprot_id
-            )
-
+            pdb_to_uniprot_mapping = {v: k for k, v in uniprot_to_pdb_mapping.items()}
             if uniprot_to_pdb_mapping is None or pdb_to_uniprot_mapping is None:
                 print('Mapping between UniProt and PDB failed! Skipped!')
                 continue
 
             # row identifier for each COSMIS score record
-            id_fields = [transcript, ensp_id, uniprot_id]
+            id_fields = [uniprot_id, right_enst]
             
-            for i, a in enumerate(transcript_pep, start=1):
+            for i, a in enumerate(pep_seq, start=1):
                 # @TODO need to get the corresponding position in the PDB file
                 # It is highly likely that the amino acid at position i in the
                 # PDB file will not be the same amino acid at position i in the
@@ -506,12 +418,9 @@ def main():
                     pdb_pos = uniprot_to_pdb_mapping[i]
                     res = chain[pdb_pos]
                 except KeyError:
-                    # mtr3d.append((i, compute_mtr1d(i, missense_counts, synonymous_counts,
-                    #                            expected_counts, window=31)))
-                    # print('Residue', i, 'not found in', pdb_file)
                     logging.critical(
                         'Residue %s in %s not found in chain %s in PDB file: %s', 
-                        i, ensp_id, pdb_chain, pdb_id
+                        i, uniprot_id, pdb_chain, pdb_id
                     )
                     continue
                     
@@ -520,51 +429,42 @@ def main():
                 pdb_aa = seq1(res.get_resname())
                 if a != pdb_aa:
                     logging.critical(
-                        'Residue in %s and %s of %s did not match that in PDB %s '
+                        'Residue in %s did not match that in PDB %s '
                         'chain %s at %s: %s vs %s',
-                        uniprot_id, ensp_id, transcript, pdb_id, pdb_chain, i, 
-                        a, pdb_aa
-                    )
-                    logging.critical(
-                        'Please first check UniProt sequence is identical to ENSP '
-                        'sequence. If this is true, check if there is any oddity '
-                        'in the SIFTS residue-level mapping.'
+                        uniprot_id, pdb_id, pdb_chain, i, a, pdb_aa
                     )
                     continue
-                    # sys.exit(1)
 
                 contact_res = indexed_contacts[res]
-                contacts_pdb_pos = [r.get_id()[1] for r in contact_res]
+                # only consider contacts within the same protein
+                contacts_pdb_pos = [
+                    r.get_id()[1] for r in contact_res if r.get_id()[1] in pdb_to_uniprot_mapping.keys()
+                ]
                 seq_seps = ';'.join(str(x) for x in
-                                    [i - pdb_pos for i in contacts_pdb_pos])
+                                    [pdb_to_uniprot_mapping[c] - i for c in contacts_pdb_pos])
                 num_contacts = len(contacts_pdb_pos)
 
                 total_missense_obs = missense_counts.setdefault(i, 0)
                 total_synonymous_obs = synonymous_counts.setdefault(i, 0)
                 mis_var_sites = site_variability_missense.setdefault(i, 0)
                 syn_var_sites = site_variability_synonymous.setdefault(i, 0)
-                try:
-                    total_missense_poss = all_cds_ns_counts[i - 1][0]
-                    total_synonyms_poss = all_cds_ns_counts[i - 1][1]
-                    total_missense_sites = all_cds_ns_sites[i - 1][0]
-                    total_synonymous_sites = all_cds_ns_sites[i - 1][1]
-                    total_synonymous_rate = codon_mutation_rates[i - 1][0]
-                    total_missense_rate = codon_mutation_rates[i - 1][1]
-                    phylop_scores = transcript_phylop_scores[i - 1][3]
-                    gerp_scores = transcript_gerp_scores[i - 1][3]
-                    if not all(gerp_scores):
-                        gerp_scores = [np.nan] * 3
-                    r4s_score = transcript_r4s_scores[i - 1]
-                except IndexError:
-                    print('list index out of range:', i)
-                    continue
+                total_missense_poss = all_cds_ns_counts[i - 1][0]
+                total_synonyms_poss = all_cds_ns_counts[i - 1][1]
+                total_missense_sites = all_cds_ns_sites[i - 1][0]
+                total_synonymous_sites = all_cds_ns_sites[i - 1][1]
+                total_synonymous_rate = codon_mutation_rates[i - 1][0]
+                total_missense_rate = codon_mutation_rates[i - 1][1]
 
                 # get sequence context of the contact set
                 try:
                     seq_context = seq_utils.get_codon_seq_context(
-                        contacts_pdb_pos + [i], transcript_cds
+                        [pdb_to_uniprot_mapping[x] for x in contacts_pdb_pos] + [i], cds
                     )
                 except IndexError:
+                    logging.critical(
+                        'Error in retrieving sequence context:', 
+                        contacts_pdb_pos, right_enst, uniprot_id
+                    )
                     break
 
                 # compute the GC content of the sequence context
@@ -574,48 +474,48 @@ def main():
                 gc_fraction = seq_utils.gc_content(seq_context)
 
                 if contacts_pdb_pos:
-                    all_ensp_pos = []
+                    all_uniprot_pos = []
                     for j in contacts_pdb_pos:
                         # @TODO need to get the corresponding position in ENSP
                         # amino acid sequence using the SIFTS mapping table
                         try:
-                            ensp_pos = pdb_to_uniprot_mapping[j]
+                            uniprot_pos = pdb_to_uniprot_mapping[j]
                         except KeyError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s not found '
                                 'in %s, skipped',
-                                j, pdb_id, pdb_chain, ensp_id
+                                j, pdb_id, pdb_chain, uniprot_id
                             )
                             continue
 
                         # count the total # observed variants in contacting residues
-                        total_missense_obs += missense_counts.setdefault(ensp_pos, 0)
-                        total_synonymous_obs += synonymous_counts.setdefault(ensp_pos, 0)
-                        mis_var_sites += site_variability_missense.setdefault(ensp_pos, 0)
-                        syn_var_sites += site_variability_synonymous.setdefault(ensp_pos, 0)
+                        total_missense_obs += missense_counts.setdefault(uniprot_pos, 0)
+                        total_synonymous_obs += synonymous_counts.setdefault(uniprot_pos, 0)
+                        mis_var_sites += site_variability_missense.setdefault(uniprot_pos, 0)
+                        syn_var_sites += site_variability_synonymous.setdefault(uniprot_pos, 0)
                         # count the total # expected variants
                         try:
-                            total_missense_poss += all_cds_ns_counts[ensp_pos - 1][0]
-                            total_synonyms_poss += all_cds_ns_counts[ensp_pos - 1][1]
-                            total_missense_sites += all_cds_ns_sites[ensp_pos - 1][0]
-                            total_synonymous_sites += all_cds_ns_sites[ensp_pos - 1][1]
-                            total_synonymous_rate += codon_mutation_rates[ensp_pos - 1][0]
-                            total_missense_rate += codon_mutation_rates[ensp_pos - 1][1]
+                            total_missense_poss += all_cds_ns_counts[uniprot_pos - 1][0]
+                            total_synonyms_poss += all_cds_ns_counts[uniprot_pos - 1][1]
+                            total_missense_sites += all_cds_ns_sites[uniprot_pos - 1][0]
+                            total_synonymous_sites += all_cds_ns_sites[uniprot_pos - 1][1]
+                            total_synonymous_rate += codon_mutation_rates[uniprot_pos - 1][0]
+                            total_missense_rate += codon_mutation_rates[uniprot_pos - 1][1]
                         except IndexError:
                             logging.critical(
                                 'PDB residue %s in %s chain %s out of the range '
                                 'of %s codons, something must be wrong with SIFTS mapping',
-                                j, pdb_id, pdb_chain, transcript
+                                j, pdb_id, pdb_chain, right_enst
                             )
                             continue
-                        all_ensp_pos.append(ensp_pos)
+                        all_uniprot_pos.append(uniprot_pos)
 
                     # get permutation statistics
                     mis_pmt_mean, mis_pmt_sd, mis_p_value = seq_utils.get_permutation_stats(
-                        mis_pmt_matrix, all_ensp_pos + [i], total_missense_obs
+                        mis_pmt_matrix, all_uniprot_pos + [i], total_missense_obs
                     )
                     syn_pmt_mean, syn_pmt_sd, syn_p_value = seq_utils.get_permutation_stats(
-                        syn_pmt_matrix, all_ensp_pos + [i], total_synonymous_obs
+                        syn_pmt_matrix, all_uniprot_pos + [i], total_synonymous_obs
                     )
 
                     # push results for the current residue
@@ -643,16 +543,15 @@ def main():
                             '{:.3f}'.format(syn_pmt_mean),
                             '{:.3f}'.format(syn_pmt_sd),
                             '{:.3e}'.format(syn_p_value),
-                            '{:.3f}'.format(np.mean(phylop_scores)),
-                            '{:.3f}'.format(np.mean(gerp_scores)),
-                            r4s_score,
-                            enst_mp_counts[transcript][2],
-                            enst_mp_counts[transcript][4],
+                            enst_mp_counts[right_enst][2],
+                            enst_mp_counts[right_enst][4],
+                            total_exp_syn_counts,
                             total_exp_mis_counts,
-                            len(transcript_pep),
+                            len(pep_seq),
                         ]
                     )
                 else:
+                    print("No contacts found.")
                     continue
 
             with open(file=cosmis_file, mode='wt') as opf:
