@@ -12,13 +12,14 @@ import os
 import numpy as np
 from Bio.Seq import Seq
 from Bio.PDB import PDBParser, PDBList, PPBuilder
-from Bio.PDB.MMCIF2Dict import MMCIF2Dict
+from Bio.PDB import parse_pdb_header
 from Bio.PDB import NeighborSearch
 from Bio.PDB import is_aa
+from Bio.PDB import MMCIFParser
 from cosmis.pdb_struct.contact import Contact
 
 
-def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None):
+def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None, pdb_format='pdb'):
     """
     Creates a Bio.PDB.Chain object for the requested PDB chain.
 
@@ -40,8 +41,12 @@ def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None):
     # check to see if the PDB file is already downloaded
     # if not, download and store it locally
     pdb_dir = os.path.join(pdb_db, pdb_id[1:3])
+    if pdb_format.lower() == 'pdb':
+        file_suffix = '.pdb'
+    else:
+        file_suffix = '.cif'
     pdb_file = os.path.join(
-        pdb_dir, pdb_id + '.pdb'
+        pdb_dir, pdb_id + file_suffix
     )
     if not os.path.exists(pdb_file):
         if not os.path.exists(pdb_dir):
@@ -49,14 +54,17 @@ def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None):
 
         pdbl = PDBList()
         pdb_file = pdbl.retrieve_pdb_file(
-            pdb_id, file_format='pdb',
+            pdb_id, file_format=pdb_format,
             pdir=pdb_dir
         )
 
     # read in the PDB file
-    pdb_parser = PDBParser(PERMISSIVE=1)
+    if pdb_format.lower() == 'pdb':
+        pdb_parser = PDBParser(PERMISSIVE=1)
+    else: 
+        pdb_parser = MMCIFParser(QUIET=True)
     try:
-        structure = pdb_parser.get_structure(id=pdb_id, file=pdb_file)
+        structure = pdb_parser.get_structure(pdb_id, pdb_file)
     except (FileNotFoundError, ValueError) as e:
         print('PDB file cannot be retrieved', pdb_id)
         return None
@@ -101,33 +109,25 @@ def get_resolution(pdb_id, pdb_path=None):
     """
     pdbl = PDBList()
 
-
-    if pdb_path is None or not os.path.exists(pdb_path):
+    if pdb_path is None:
         pdb_path = '/tmp/'
+    if not os.path.exists(pdb_path):
+        os.mkdir(pdb_path)
 
-    # retrieve the MMCIF file for the requested PDB ID
-    mmcif_file = os.path.join(pdb_path, pdb_id[1:3], pdb_id + '.cif')
-    if os.path.exists(mmcif_file):
-        print(mmcif_file, 'already exist. Skip downloading.')
-    else:
-        mmcif_file = pdbl.retrieve_pdb_file(
+    # retrieve the PDB file for the requested PDB ID
+    cif_file = os.path.join(pdb_path, pdb_id[1:3], pdb_id + '.cif')
+    if not os.path.exists(cif_file) or os.stat(cif_file).st_size == 0:
+        cif_file = pdbl.retrieve_pdb_file(
             pdb_id, file_format='mmCif', pdir=os.path.join(pdb_path, pdb_id[1:3])
         )
 
     # make a dict from meta info keys to values
+    mmcif_parser = MMCIFParser(QUIET=True)
+    structure_cif = mmcif_parser.get_structure(pdb_id, cif_file)
     try:
-        mmcif_dict = MMCIF2Dict(mmcif_file)
-    except:
-        return None
-
-    # retrieve resolution
-    try:
-        res = mmcif_dict['_refine.ls_d_res_high']
+        res = structure_cif.header['resolution']
     except KeyError:
         return None
-
-    # remove the MMCIF file
-    # os.remove(mmcif_file)
 
     try:
         return float(res)

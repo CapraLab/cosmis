@@ -16,25 +16,30 @@ class EnsemblUniProtPDB:
     """
 
     """
-    def __init__(self, sifts_mapping_file=None, pdb_path=None):
+    def __init__(self, sifts_ensembl=None, sifts_uniprot=None, pdb_path=None):
         """
 
         Parameters
         ----------
-        mapping_table
+        sifts_uniprot : str
+            Residue-level mapping file.
+
+        sifts_ensembl : str
+            Chain-level mapping file.
         """
-        if sifts_mapping_file is None:
+        if sifts_ensembl is None:
             local_path = os.path.abspath(
-                './mapping_files/pdb_chain_ensembl.tsv.gz'
+                './pdb_chain_ensembl.tsv.gz'
             )
             if os.path.exists(local_path):
-                sifts_mapping_file = local_path
+                sifts_ensembl = local_path
             else:
                 # download sifts mapping file
                 urllib.request.urlretrieve(SIFTS_ENSEMBL_URL, local_path)
-                sifts_mapping_file = local_path
+                sifts_ensembl = local_path
 
-        self.mapping_table = self._create_mapping_table(sifts_mapping_file)
+        self.mapping_table = self._create_mapping_table(sifts_ensembl)
+        self.sifts_uniprot = sifts_uniprot
         self.pdb_path = pdb_path
 
     def _create_mapping_table(self, sifts_mapping_file):
@@ -54,7 +59,8 @@ class EnsemblUniProtPDB:
             sep='\t',
             compression='gzip',
             comment='#',
-            na_values='None'
+            na_values='None',
+            low_memory=False
         )
 
         sifts_table.rename(
@@ -113,7 +119,7 @@ class EnsemblUniProtPDB:
         # return the pdb chain that has the largest coverage
         # of the transcript protein sequence, this could be implemented
         # ad hoc, but for now, we rely on SIFTS residue-level mapping
-        sifts = SIFTS(xml_dir=self.pdb_path)
+        sifts = SIFTS(sifts_uniprot=self.sifts_uniprot, xml_dir=self.pdb_path)
         max_len = 0
         best_resolution = pdb_utils.get_resolution(uniq_pdb_chains[0][0], self.pdb_path)
         best_pdb_id = ''
@@ -159,6 +165,81 @@ class EnsemblUniProtPDB:
         hits = self.mapping_table.query(query_str)
         return set(hits.unique())
 
+    def uniprot_to_pdb(self, uniprot_id):
+        """
+
+        Parameters
+        ----------
+        uniprot_id
+
+        Returns
+        -------
+
+        """
+        uniprot_id = uniprot_id.upper()
+        query_str = 'uniprot_id == ' + '"' + uniprot_id + '"'
+
+        # query the mapping table
+        hits = self.mapping_table.query(query_str)
+
+        if hits.empty:
+            return None, None
+
+        pdb_chains = defaultdict(list)
+        for _, r in hits.iterrows():
+            # skip records where PDB ID or CHAIN ID is empty string
+            if r['pdb_id'] and r['pdb_chain']:
+                pdb_chains[r['pdb_id']].append(r['pdb_chain'])
+
+        # remove duplicates but keep ordering
+        uniq_pdb_chains = []
+        for k, v in pdb_chains.items():
+            uniq_pdb_chains.append((k, v[0]))
+
+        if not uniq_pdb_chains:
+            return None, None
+
+        # return the pdb chain that has the largest coverage
+        # of the transcript protein sequence, this could be implemented
+        # ad hoc, but for now, we rely on SIFTS residue-level mapping
+        sifts = SIFTS(sifts_uniprot=self.sifts_uniprot, xml_dir=self.pdb_path)
+        max_len = 0
+        best_resolution = 5.0
+        best_pdb_id = ''
+        best_chain_id = ''
+        for pdb_id, chain_id in uniq_pdb_chains:
+            if not (pdb_id and chain_id):
+                print('PDB ID is empty string for', uniprot_id, ', skipped')
+                continue
+            # skip if resolution worse than 5 angstrom
+            resolution = pdb_utils.get_resolution(pdb_id, self.pdb_path)
+            # if resolution is None, then it is likely an NMR model
+            # if resolution is None:
+            #     print('{} {} is an NMR model. EXCLUDED!'.format(pdb_id, chain_id))
+            #    continue
+            if resolution is not None and resolution > 5.0:
+                print('{} {} resolution > 5 angstrom. EXCLUDED!'.format(pdb_id, chain_id))
+                continue
+            residue_mapping = sifts.pdb_to_uniprot(pdb_id, chain_id, uniprot_id)
+            if residue_mapping is None:
+                print('Failed to obtain residue mapping from SIFTS xml file.')
+                continue
+            # check sequence coverage
+            if max_len < len(residue_mapping):
+                max_len = len(residue_mapping)
+                best_pdb_id = pdb_id
+                best_chain_id = chain_id
+                if resolution is not None:
+                    best_resolution = resolution
+            # check resolution
+            elif max_len == len(residue_mapping):
+                if resolution is not None and resolution < best_resolution:
+                    best_pdb_id = pdb_id
+                    best_chain_id = chain_id
+                    best_resolution = resolution
+
+        return best_pdb_id, best_chain_id 
+
 
 def main():
     """
@@ -169,9 +250,9 @@ def main():
     """
     ensembl_uniprot_pdb = EnsemblUniProtPDB()
 
-    test_enst_id = 'ENST00000398606'
+    test_uniprot_id = 'Q9Y4Z0'
 
-    pdb_id, chain_id = ensembl_uniprot_pdb.enst_to_pdb(test_enst_id)
+    pdb_id, chain_id = ensembl_uniprot_pdb.uniprot_to_pdb(test_uniprot_id)
 
     print(pdb_id, chain_id)
 
