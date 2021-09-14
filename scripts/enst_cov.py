@@ -9,6 +9,7 @@ Created on Thu Aug 13 22:45:52 2020
 import gzip
 import csv
 import sys
+import json
 from Bio import SeqIO
 from argparse import ArgumentParser
 from cosmis.mapping.ensembl_uniprot_pdb import SIFTS
@@ -95,7 +96,7 @@ def main():
     
     # read pairs of transcript to PDB chain mapping into a dictionary
     with open(cmd_args.mapping_list, 'rt') as ipf:
-        enst_to_pdb = dict(l.strip().split() for l in ipf)
+        enst_to_pdb = json.load(ipf)
     
     # read the transcript translation sequences into a dictionary
     translated_seqs = {}
@@ -123,8 +124,12 @@ def main():
     completed = 0
     for k, v in enst_to_pdb.items():
         # get four-letter PDB IDs and chain IDs
-        pdb_id = v[:4]
-        chain_id = v[4:] # some PDB chain IDs could have two characters
+        pdb_id = v[0]
+        chain_id = v[1] # some PDB chain IDs could have two characters
+
+        if not pdb_id:
+            print('PDB ID is empty for {}'.format(k))
+            continue
         
         # get residue-level mapping between PDB and transcript sequences
         sifts_mapping = SIFTS(cmd_args.sifts_mapping, cmd_args.pdb_dir)
@@ -155,7 +160,7 @@ def main():
             print('Please go to xxx to check if the file xxx is available.')
             continue
         coverages.append(
-            [k, v, enst_length, pdb_mapped_length, '%.3f' % coverage]
+            [k, ''.join(v), enst_length, pdb_mapped_length, '%.3f' % coverage]
         )
         
         # update progress bar

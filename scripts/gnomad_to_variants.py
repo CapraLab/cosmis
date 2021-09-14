@@ -23,7 +23,7 @@ def parse_cmd():
     """
     parser = ArgumentParser()
     parser.add_argument(
-        '-o', '--output', dest='output', required=True, type=str, 
+        '-o', '--output', dest='output', required=True, type=str,
         help='Output file to store the results.'
     )
     parser.add_argument(
@@ -68,8 +68,8 @@ def main():
 
             # get the INFO field
             info_fields = dict(
-                item.split('=') for item in variant_fields['INFO'].split(';') 
-                    if '=' in item
+                item.split('=') for item in variant_fields['INFO'].split(';')
+                if '=' in item
             )
 
             # get VEP annotations

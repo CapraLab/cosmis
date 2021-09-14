@@ -54,11 +54,12 @@ def main():
         format='%(levelname)s:%(asctime)s:%(message)s'
     )
 
-    # write the multiple sequence alignment for each transcript in FASTA format
+    # parse all the transcript ids
     with open(args.transcripts, 'rt') as ipf:
         enst_ids = [line.strip() for line in ipf]
 
     enst_r4s = defaultdict(list)
+    print('Parsing rate4site results.')
     for enst_id in enst_ids:
         r4s_file = os.path.join(args.db_path, enst_id + args.suffix)
         if not os.path.exists(r4s_file):

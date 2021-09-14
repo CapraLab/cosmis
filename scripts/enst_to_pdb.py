@@ -52,10 +52,9 @@ def main():
     args = parse_cmd()
 
     # read in the mapping file
-    with open(args.sifts_mappings, 'rt') as ipf:
-        ensembl_pdbchain_mappings = EnsemblUniProtPDB(
-            args.sifts_mappings, args.pdb_path
-        )
+    ensembl_pdbchain_mappings = EnsemblUniProtPDB(
+        args.sifts_mappings, path_path=args.pdb_path
+    )
 
     # get supplied Ensembl transcript IDs
     with open(args.enst_ids, 'rt') as ipf:
