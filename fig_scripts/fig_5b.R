@@ -1,4 +1,4 @@
-# MRT3D versus MTR ROC
+# load required packages
 library(tidyverse)
 library(PNWColors)
 rm(list = ls())
@@ -138,10 +138,10 @@ combined <- combined %>% mutate(
   full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
 )
 
-# load variant IDs
+# load ClinVar variant IDs
 clinvar_patho_ids <-  read_tsv(
   file = paste(
-    data_dir, 
+    result_dir, 
     "clinvar_unambiguous_pathogenic_ids_20210807.tsv", 
     sep = "/"
   ), 
@@ -152,7 +152,7 @@ clinvar_patho_ids <- clinvar_patho_ids %>% mutate(
 )
 clinvar_benign_ids <- read_tsv(
   file = paste(
-    data_dir, 
+    result_dir, 
     "clinvar_unambiguous_benign_ids_20210807.tsv", 
     sep = "/"
   ),
@@ -186,18 +186,54 @@ cosmis_clinvar <- cosmis_clinvar %>%
     )
   )
 
-# wilcox test
-patho <- subset(x = cosmis_clinvar, subset = label == 1)
-benign <- subset(x = cosmis_clinvar, subset = label == 0)
-w_test <- wilcox.test(patho$cosmis, benign$cosmis)
 
-# set plot theme
+# COSMIS score percentiles
+percentiles <- quantile(combined$cosmis, seq(0.1, 1, 0.1))
+
+# function for computing 
+odds_ratio <- function(low, high) {
+  if (low == 0 || high == 0) {
+    a <- sum(patho$cosmis <= high & patho$cosmis >= low)
+    c <- sum(benign$cosmis <= high & benign$cosmis >= low)
+  } else {
+    a <- sum(patho$cosmis <= high & patho$cosmis > low)
+    c <- sum(benign$cosmis <= high & benign$cosmis > low)
+  }
+  b <- nrow(patho) - a
+  d <- nrow(benign) - c
+  or <- (a / b) / (c / d)
+  ci_low <- exp(log(or) - 1.96 * sqrt(1 / a + 1 / b + 1 / c + 1 / d))
+  ci_high <- exp(log(or) + 1.96 * sqrt(1 / a + 1 / b + 1 / c + 1 / d))
+  return(c(or, ci_low, ci_high))
+}
+
+or_ci_m <- matrix(nrow = 10, ncol = 3)
+for (i in 1:9) {
+  or_ci <- odds_ratio(low = percentiles[i], high = percentiles[i + 1])
+  or_ci_m[i + 1, ] <- or_ci
+}
+# most constrained percentile
+x <- odds_ratio(low = -6, high = percentiles[1])
+or_ci_m[1, ] <- x
+
+# create a dataframe for plotting
+or_ci_df <- data.frame(
+  percentile = seq(0.1, 1, 0.1),
+  or = or_ci_m[, 1],
+  ci_low = or_ci_m[, 2],
+  ci_high = or_ci_m[, 3]
+)
+
+# barplot theme
 plot_margin <- margin(
   t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"
 )
-plot_theme <- theme_classic() + theme(
+barplot_theme <- theme_classic() + theme(
   axis.text = element_text(
     size = 16, color = "black"
+  ),
+  axis.text.x.bottom = element_text(
+    angle = 90, vjust = 0.5, hjust = 1
   ),
   axis.title.x = element_text(
     color = "black", size = 20, margin = margin(t = 10)
@@ -211,55 +247,52 @@ plot_theme <- theme_classic() + theme(
   plot.margin = plot_margin
 )
 
-# make a violin plot
-cosmis_violin_clinvar <- cosmis_clinvar %>% 
-  filter(class %in% c("benign", "pathogenic")) %>% 
-  ggplot(
-    mapping = aes(
-      x = factor(class, levels = c("benign", "pathogenic")), 
-      y = cosmis, 
-      fill = factor(class, levels = c("benign", "pathogenic"))
-    )
+# make a barplot
+or_barplot <- ggplot(
+  data = or_ci_df,
+  mapping = aes(x = as.factor(percentile), y = or, fill = as.factor(percentile))
+) + 
+  geom_bar(stat = "identity", width = 0.7) +
+  geom_errorbar(
+    mapping = aes(ymin = ci_low, ymax = ci_high),
+    width = 0.2
   ) +
-  geom_violin(
-    trim = FALSE,
-    size = 1,
-    alpha = 0.5
-  ) +
-  geom_boxplot(
-    width = 0.2,
-    fill = "white",
-    outlier.shape = NA
-  ) +
-  scale_fill_manual(
-    values = pnw_palette(name = "Shuksan2", n = 7)[c(2, 6)]
-  ) + 
+  geom_hline(yintercept = 1, linetype = "dashed") +
   labs(
-    y = "COSMIS score"
-  ) +
-  scale_x_discrete(
-    labels = c("Benign", "Pathogenic")
+    x = "COSMIS score percentile",
+    y = "OR (pathogenic vs benign)"
   ) +
   scale_y_continuous(
-    breaks = seq(-6, 6, 2),
-    limits = c(-6, 6, 2),
-    labels = sprintf("%.1f", seq(-6, 6, 2)),
+    limits = c(0, 15),
+    breaks = seq(0, 15, 5),
+    labels = sprintf("%.1f", seq(0, 15, 5)),
     expand = c(0, 0)
   ) +
-  plot_theme + theme(
-    axis.title.x = element_blank()
-  )
+  scale_x_discrete(
+    labels = c(
+      " 0 - 10",
+      "10 - 20",
+      "20 - 30",
+      "30 - 40",
+      "40 - 50",
+      "50 - 60",
+      "60 - 70",
+      "70 - 80",
+      "80 - 90",
+      "90 - 100"
+    )
+  ) +
+  scale_fill_manual(
+    values = rep(pnw_palette(name = "Shuksan2", n = 7)[2], 10)
+  ) + 
+  barplot_theme
 
-# save the violin plot to disk
+# save the bar plot to disk
 ggsave(
-  filename = paste(
-    figure_dir, 
-    "clinvar_cosmis_violin.svg", 
-    sep = "/"
-  ),
-  plot = cosmis_violin_clinvar,
-  width = 5,
-  height = 5,
+  filename = paste(figure_dir, "clinvar_cosmis_or_barplot.svg", sep = "/"),
+  plot = or_barplot,
+  width = 8,
+  height = 6,
   units = "in",
   device = "svg",
 )

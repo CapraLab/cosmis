@@ -1,7 +1,8 @@
-# MRT3D versus MTR ROC
+# load required packages
 library(tidyverse)
 library(PNWColors)
 rm(list = ls())
+
 
 # data and figure paths
 data_dir <- "/path/to/datasets"
@@ -134,132 +135,189 @@ combined <- rbind(
   cosmis_df_alphafold[comm_cols]
 )
 combined <- combined %>% mutate(
-  cosmis = (cs_mis_obs - mis_pmt_mean) / mis_pmt_sd,
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
+  cosmis = (cs_mis_obs - mis_pmt_mean) / mis_pmt_sd
 )
 
-# load variant IDs
-clinvar_patho_ids <-  read_tsv(
-  file = paste(
-    data_dir, 
-    "clinvar_unambiguous_pathogenic_ids_20210807.tsv", 
-    sep = "/"
-  ), 
-  col_names = TRUE
-)
-clinvar_patho_ids <- clinvar_patho_ids %>% mutate(
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
-)
-clinvar_benign_ids <- read_tsv(
-  file = paste(
-    data_dir, 
-    "clinvar_unambiguous_benign_ids_20210807.tsv", 
+# load haploinsufficient gene transcript IDs
+hi_uniprot<- read_tsv(
+  file = str_c(
+    data_dir,
+    "clingen_level3_haploinsufficient_uniprot.tsv",
     sep = "/"
   ),
   col_names = TRUE
 )
-clinvar_benign_ids <- clinvar_benign_ids %>% mutate(
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
+
+# load olfactory receptor gene transcript IDs
+or_uniprot <- read_tsv(
+  file = str_c(
+    data_dir,
+    "olfactory_receptor_uniprot.tsv",
+    sep = "/"
+  ),
+  col_names = TRUE
 )
 
-# cosmis scores for ClinVar pathogenic variants
-patho_cosmis <- combined %>% filter(
-  full_id %in% clinvar_patho_ids$full_id
+# load all dominant gene transcript IDs
+dominant_uniprot <- read_tsv(
+  file = str_c(
+    data_dir,
+    "all_dominant_uniprot.tsv",
+    sep = "/"
+  ),
+  col_names = TRUE
+)
+
+# load all dominant gene transcript IDs
+recessive_uniprot <- read_tsv(
+  file = str_c(
+    data_dir,
+    "all_recessive_uniprot.tsv",
+    sep = "/"
+  ),
+  col_names = TRUE
+)
+
+# load all dominant gene transcript IDs
+essential_uniprot <- read_tsv(
+  file = str_c(
+    data_dir,
+    "essential_genes_uniprot.tsv",
+    sep = "/"
+  ),
+  col_names = TRUE
+)
+
+# load all dominant gene transcript IDs
+non_essential_uniprot <- read_tsv(
+  file = str_c(
+    data_dir,
+    "non_essential_genes_uniprot.tsv",
+    sep = "/"
+  ),
+  col_names = TRUE
+)
+
+# extract rows from COSMIS dataset
+hi_cosmis <- combined %>% filter(
+  uniprot_id %in% hi_uniprot$uniprot_id
 ) %>% mutate(
-  label = 1
+  class = "Haploinsufficient"
 )
-benign_cosmis <- combined %>% filter(
-  full_id %in% clinvar_benign_ids$full_id
+
+or_cosmis <- combined %>% filter(
+  uniprot_id %in% or_uniprot$uniprot_id
 ) %>% mutate(
-  label = 0
+  class = "Olfactory"
 )
 
-cosmis_clinvar <- rbind(
-  patho_cosmis,
-  benign_cosmis
+dominant_cosmis <- combined %>% filter(
+  uniprot_id %in% dominant_uniprot$uniprot_id
+) %>% mutate(
+  class = "Dominant"
 )
-cosmis_clinvar <- cosmis_clinvar %>% 
-  mutate(
-    class = factor(
-      ifelse(label == 0, "benign", "pathogenic"), 
-      levels = c("benign", "pathogenic")
-    )
-  )
 
-# wilcox test
-patho <- subset(x = cosmis_clinvar, subset = label == 1)
-benign <- subset(x = cosmis_clinvar, subset = label == 0)
-w_test <- wilcox.test(patho$cosmis, benign$cosmis)
+recessive_cosmis <- combined %>% filter(
+  uniprot_id %in% recessive_uniprot$uniprot_id
+) %>% mutate(
+  class = "Recessive"
+)
 
-# set plot theme
+essential_cosmis <- combined %>% filter(
+  uniprot_id %in% essential_uniprot$uniprot_id
+) %>% mutate(
+  class = "Essential"
+)
+
+non_essential_cosmis <- combined %>% filter(
+  uniprot_id %in% non_essential_uniprot$uniprot_id
+) %>% mutate(
+  class = "Non essential"
+)
+
+combined$class <- "All"
+
+# make a violin plot
 plot_margin <- margin(
   t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"
 )
-plot_theme <- theme_classic() + theme(
+plot_theme <- theme(
+  panel.background = element_blank(),
+  panel.grid = element_blank(),
+  axis.line.x = element_line(size = 1),
+  axis.line.y = element_line(size = 1),
   axis.text = element_text(
-    size = 16, color = "black"
+    size = 24, color = "black"
   ),
   axis.title.x = element_text(
-    color = "black", size = 20, margin = margin(t = 10)
+    color = "black", size = 28, margin = margin(t = 10)
   ),
   axis.title.y = element_text(
-    color = "black", size = 20, margin = margin(r = 10)
+    color = "black", size = 28, margin = margin(r = 10)
   ),
-  axis.ticks.length = unit(.25, "cm"),
-  axis.ticks = element_line(),
+  axis.ticks.length = unit(0.4, "cm"),
+  axis.ticks = element_line(size = 1),
   legend.position = "none",
   plot.margin = plot_margin
 )
 
-# make a violin plot
-cosmis_violin_clinvar <- cosmis_clinvar %>% 
-  filter(class %in% c("benign", "pathogenic")) %>% 
+gene_class_cosmis_violin <- bind_rows(
+  hi_cosmis, essential_cosmis, dominant_cosmis, combined, 
+  recessive_cosmis, non_essential_cosmis, or_cosmis
+) %>% mutate(
+  class = factor(
+    class, 
+    levels = c(
+      "Haploinsufficient", "Essential", "Dominant", "All", "Recessive", 
+      "Non essential", "Olfactory"
+    ),
+    ordered = TRUE
+  )
+) %>% 
   ggplot(
     mapping = aes(
-      x = factor(class, levels = c("benign", "pathogenic")), 
-      y = cosmis, 
-      fill = factor(class, levels = c("benign", "pathogenic"))
+      x = class,
+      y = cosmis,
+      fill = class
     )
   ) +
+  geom_hline(
+    yintercept = 0, 
+    linetype = "dotted", 
+    color = "gray", 
+    size = 1.5
+  ) +
   geom_violin(
-    trim = FALSE,
-    size = 1,
-    alpha = 0.5
+    size = 0.8
   ) +
   geom_boxplot(
-    width = 0.2,
     fill = "white",
+    size = 0.8,
+    width = 0.12,
     outlier.shape = NA
   ) +
-  scale_fill_manual(
-    values = pnw_palette(name = "Shuksan2", n = 7)[c(2, 6)]
-  ) + 
-  labs(
-    y = "COSMIS score"
+  coord_flip(
   ) +
-  scale_x_discrete(
-    labels = c("Benign", "Pathogenic")
+  scale_fill_manual(
+    values = rev(pnw_palette(name = "Shuksan2", n = 7))
+  ) +
+  xlab(
+    label = NULL
   ) +
   scale_y_continuous(
+    name = str_wrap("COSMIS score", width = 30),
+    limits = c(-6, 6),
     breaks = seq(-6, 6, 2),
-    limits = c(-6, 6, 2),
-    labels = sprintf("%.1f", seq(-6, 6, 2)),
     expand = c(0, 0)
   ) +
-  plot_theme + theme(
-    axis.title.x = element_blank()
-  )
+  plot_theme
 
-# save the violin plot to disk
 ggsave(
-  filename = paste(
-    figure_dir, 
-    "clinvar_cosmis_violin.svg", 
-    sep = "/"
-  ),
-  plot = cosmis_violin_clinvar,
-  width = 5,
-  height = 5,
+  filename = paste(figure_dir, "gene_class_cosmis_violin_plot.svg", sep = "/"),
+  plot = gene_class_cosmis_violin,
+  width = 8,
+  height = 10,
   units = "in",
   device = "svg",
 )
+
