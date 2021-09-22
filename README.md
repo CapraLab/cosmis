@@ -1,6 +1,6 @@
 # COSMIS
-COSMIS is a novel framework for quantifying the 3D spatial constraint of amino acid sites in the human proteome  s shown to perform equally well as the best methods in the field while effectively addressing prediction bias. If you find COSMIS useful in your work, please consider citing the COSMIS paper: 
-* Li, B., Roden, D.M., and Capra, J.A. (2020). The 3D spatial constraint on 6.1 million amino acid sites in the human proteome. bioRxiv. doi: https://doi.org/10.1101/2021.09.15.460390
+COSMIS is a novel framework for quantifying the 3D spatial constraint of amino acid sites in the human proteome. If you find COSMIS useful in your work, please consider citing the COSMIS paper: 
+* Li, B., Roden, D.M., and Capra, J.A. (2021). The 3D spatial constraint on 6.1 million amino acid sites in the human proteome. bioRxiv. doi: https://doi.org/10.1101/2021.09.15.460390
 
 ## What's in each folder?
 
@@ -18,3 +18,5 @@ The `scores` folder constains precomputed scores for all 16,533 proteins of the 
 
 ### scripts
 The `scripts` folder contains all scripts written in Python that were called to obtain processed datasets in the `data` folder.
+
+## More descriptions and tutorials are under construction
