@@ -54,11 +54,93 @@ wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase
 
 3. Download counts of unique variants at each amino acid position for all gnomAD annotated transcripts.
 
-We preprocessed the gnomAD database and created a JSON formatted file that maps Ensembl stable transcript IDs to unique variant counts and variant types (missense or synonymous) for all position in the human proteome where a SNP variant was annotated by gnomAD. We have made this dataset available through [FigShare](https://figshare.com/ndownloader/files/31186919).
+   We preprocessed the gnomAD database and created a JSON formatted file that maps Ensembl stable transcript IDs to unique variant counts and variant types (missense or synonymous) for all position in the human proteome where a SNP variant was annotated by gnomAD. We have made this dataset available through [FigShare](https://figshare.com/ndownloader/files/31186919).
 
 4. Get the mapping table from UniProt protein IDs to Ensembl stable transcript IDs.
 
-A mapping from UniProt protein IDs to Ensembl stable transcript IDs is also required to run COSMIS. We have created such a mapping table and made it available through [FigShare](https://figshare.com/ndownloader/files/31186929)
+   A mapping from UniProt protein IDs to Ensembl stable transcript IDs is also required to run COSMIS. We have created such a mapping table and made it available through [FigShare](https://figshare.com/ndownloader/files/31186929)
 
 5. Get transcript-level mutation probabilities.
+   
    Transcript-level mutation probabilities are required to run COSMIS. You can get them from [FigShare](https://figshare.com/s/5f3e0fabc92a0ce59cdc). 
+
+### Run COSMIS
+Depending on whether you want run COSMIS on a single monomeric protein or homo-multimeric protein, or a list of monomeric proteins, the script and setup are slightly different.
+
+1. Run COSMIS on a single monomeric or homo-multimeric protein.
+
+1.1 Use the following JSON formatted template to supply paths to database files.
+```bash
+{
+    "ensembl_cds": "/path/to/Homo_sapiens.GRCh38.cds.all.fa.gz",
+    "uniprot_pep": "/path/to/UP000005640_9606.fasta.gz",
+    "gnomad_variants": "/path/to/gnomad_filtered/gnomad_variant_counts_hg38.json",
+    "uniprot_to_enst": "/path/to/uniprot_to_enst.json",
+    "enst_mp_counts": "/path/to/mutation_probs.tsv"
+}
+```
+Then, save the file as `data_paths.json`, for example.
+
+1.2 If you want to compute COSMIS score WITHOUT accounting for contacts from neighboring subunits. Run this command
+```bash
+python cosmis_sp.py -c data_paths.json -u <UniProt ID> -p <PDB file> --chain <chain ID of subunit> -o monomeric_cosmis.tsv
+```
+
+1.3 If you want to compute COSMIS score accounting for contacts from neighboring subunits. Add `--multimer` to the command above, i.e.
+```bash
+python cosmis_sp.py -c data_paths.json -u <UniProt ID> -p <PDB file> --chain <chain ID of subunit> -o multimeric_cosmis.tsv -- multimer
+```
+
+2. Run COSMIS on a list of monomeric proteins whose structures were obtained from AlphaFold database or SWISS-MODEL repository.
+
+2.1 Use the following JSON formatted template to supply paths to database files.
+```bash
+{
+    "ensembl_cds": "/path/to/Homo_sapiens.GRCh38.cds.all.fa.gz",
+    "uniprot_pep": "/path/to/UP000005640_9606.fasta.gz",
+    "gnomad_variants": "/path/to/gnomad_filtered/gnomad_variant_counts_hg38.json",
+    "uniprot_to_enst": "/path/to/uniprot_to_enst.json",
+    "enst_mp_counts": "/path/to/mutation_probs.tsv"
+    "pdb_dir": "/path/to/pdb_files/",
+    "output_dir": "./"
+}
+```
+Then, save the file as `data_paths.json`, for example.
+
+2.2 If the structures were obtained from AlphaFold database, run the following command
+```bash
+python cosmis_batch.py -c data_paths.json -i <input.txt> -d AlphaFold -l af_cosmis.log
+```
+The input file `input.txt` contains on each line a pair of UniProt ID and PDB filename. For example
+```bash
+A0A024R1R8 A0/A0/AF-A0A024R1R8-F1-model_v1.pdb
+A0A024RBG1 A0/A0/AF-A0A024RBG1-F1-model_v1.pdb
+A0A024RCN7 A0/A0/AF-A0A024RCN7-F1-model_v1.pdb
+A0A075B6H5 A0/A0/AF-A0A075B6H5-F1-model_v1.pdb
+A0A075B6H7 A0/A0/AF-A0A075B6H7-F1-model_v1.pdb
+A0A075B6H8 A0/A0/AF-A0A075B6H8-F1-model_v1.pdb
+A0A075B6H9 A0/A0/AF-A0A075B6H9-F1-model_v1.pdb
+A0A075B6I0 A0/A0/AF-A0A075B6I0-F1-model_v1.pdb
+A0A075B6I1 A0/A0/AF-A0A075B6I1-F1-model_v1.pdb
+A0A075B6I3 A0/A0/AF-A0A075B6I3-F1-model_v1.pdb
+```
+assuming that the base directory where the PDB files are stored is `/path/to/pdb_files/`.
+
+2.3 If the structures were obtained from SWISS-MODEL repository, run the following command 
+```bash
+python cosmis_batch.py -c data_paths.json -i <input.txt> -d SWISS-MODEL -l swiss_model_cosmis.log
+```
+The input file `input.txt` contains on each line a pair of UniProt ID and PDB filename. For example
+```bash
+A8MWA4 A8/MW/A4/swissmodel/109_299_5v3m.1.C.pdb
+A8MWD9 A8/MW/D9/swissmodel/3_76_4wzj.3.G.pdb
+A8MWL7 A8/MW/L7/swissmodel/11_110_2loo.1.A.pdb
+A8MX76 A8/MX/76/swissmodel/21_683_3bow.1.A.pdb
+A8MXE2 A8/MX/E2/swissmodel/68_331_7jhi.1.A.pdb
+A8MXQ7 A8/MX/Q7/swissmodel/136_377_4qfv.1.A.pdb
+A8MXT2 A8/MX/T2/swissmodel/95_311_2wa0.1.A.pdb
+A8MXU0 A8/MX/U0/swissmodel/23_60_2lwl.1.A.pdb
+A8MXY4 A8/MX/Y4/swissmodel/200_532_5v3m.1.C.pdb
+A8MYX2 A8/MY/X2/swissmodel/110_172_5cwg.1.A.pdb
+```
+again, assuming that the base directory where the PDB files are stored is `/path/to/pdb_files/`.

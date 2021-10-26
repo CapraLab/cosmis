@@ -313,8 +313,8 @@ def main():
     # compute COSMIS scores
     for uniprot_id, model_path in uniprot_sm_mapping:
         if args.database == 'SWISS-MODEL':
-            pdb_file = os.path.join(configs['pdb_dir'], model_path + '.pdb')
-            pdb_chain = model_path[-1]
+            pdb_file = os.path.join(configs['pdb_dir'], model_path)
+            pdb_chain = model_path.split('.')[-2]
         else:
             pdb_file = os.path.join(configs['pdb_dir'], model_path)
             pdb_chain = 'A'
