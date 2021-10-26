@@ -19,4 +19,10 @@ The `scores` folder constains precomputed scores for all 16,533 proteins of the 
 ### scripts
 The `scripts` folder contains all scripts written in Python that were called to obtain processed datasets in the `data` folder.
 
+### structures
+The `structures` folder contains all protein structure in the PDB format based on which COSMIS scores were computed.
+
+### supplementary_tables
+The `supplementray_tables` folder contains all supplementary tables referred to in the COSMIS paper.
+
 ## More descriptions and tutorials are under construction
