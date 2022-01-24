@@ -35,19 +35,30 @@ git clone https://github.com/CapraLab/cosmis.git
 ```
 
 ### Set up conda environment
-COSMIS depends on several Python packages. It is easiest to set up a separate conda environment to installed all required packages and to run COSMIS. All required packages can be installed when creating the conda environment, using the following command:
+COSMIS depends on several Python packages. It is easiest to set up a separate conda environment to installed all required packages and to run COSMIS. All required packages can be installed when creating the conda environment, using the following commands:
 ```bash
-conda create --name cosmis --file requirements.txt
+# if your platform is Linux based, run this
+conda create --name cosmis --file requirements_linux.txt
+
+# if your platform is OSX based, run this
+conda create --name cosmis --file requirements_osx.txt
+
+# activate the environment
+conda activate cosmis
+
+# then also use pip to install wget under the environment
+pip install wget
 ```
 Obviously, you will need to install Miniconda or Anaconda before running the command above.
 
 ### Download required datasets
-1. Get all transcript coding sequences from Ensembl.
+Some of the required datasets are already made available within this repository (in the `database_files` folder). However, due to limits on file size, we had to made larger files available through other means. Follow the following steps to get all required input datasets.
+1. Get all transcript coding sequences from Ensembl (this dataset is already available in `database_files`).
 ```bash
 wget http://ftp.ensembl.org/pub/release-104/fasta/homo_sapiens/cds/Homo_sapiens.GRCh38.cds.all.fa.gz
 ```
 
-2. Get the amino acid sequences of human reference proteome as annotated by UniProt.
+2. Get the amino acid sequences of human reference proteome as annotated by UniProt (this dataset is already available in `database_files`).
 ```bash
 wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase/reference_proteomes/Eukaryota/UP000005640/UP000005640_9606.fasta.gz
 ```
@@ -56,11 +67,11 @@ wget https://ftp.uniprot.org/pub/databases/uniprot/current_release/knowledgebase
 
    We preprocessed the gnomAD database and created a JSON formatted file that maps Ensembl stable transcript IDs to unique variant counts and variant types (missense or synonymous) for all position in the human proteome where a SNP variant was annotated by gnomAD. We have made this dataset available through [FigShare](https://figshare.com/ndownloader/files/31186919).
 
-4. Get the mapping table from UniProt protein IDs to Ensembl stable transcript IDs.
+4. Get the mapping table from UniProt protein IDs to Ensembl stable transcript IDs (this dataset is already available in `database_files`).
 
    A mapping from UniProt protein IDs to Ensembl stable transcript IDs is also required to run COSMIS. We have created such a mapping table and made it available through [FigShare](https://figshare.com/ndownloader/files/31186929)
 
-5. Get transcript-level mutation probabilities.
+5. Get transcript-level mutation probabilities (this dataset is already available in `database_files`).
    
    Transcript-level mutation probabilities are required to run COSMIS. You can get them from [FigShare](https://figshare.com/s/5f3e0fabc92a0ce59cdc). 
 
