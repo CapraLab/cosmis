@@ -1,0 +1,7 @@
+{
+    "ensembl_cds": "/Users/lib14/code_space/cosmis/database_files/Homo_sapiens.GRCh38.cds.all.fa.gz",
+    "uniprot_pep": "/Users/lib14/code_space/cosmis/database_files/UP000005640_9606.fasta.gz",
+    "gnomad_variants": "/Users/lib14/code_space/cosmis/database_files/gnomad_coding_variants_grch38.json",
+    "uniprot_to_enst": "/Users/lib14/code_space/cosmis/database_files/uniprot_to_enst.json",
+    "enst_mp_counts": "/Users/lib14/code_space/cosmis/database_files/gnomad_all_enst_prob_vs_counts_obs_and_exp.tsv"
+}
