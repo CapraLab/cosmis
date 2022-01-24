@@ -35,6 +35,8 @@ def parse_cmd():
     parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
                         action='store_true', help='''Whether to overwrite 
                         already computed MTR3D scores.''')
+    parser.add_argument('-r', '--radius', dest='radius', type=float, default=8,
+                        help='''Radius within which to include sites.''')
     parser.add_argument('-d', '--database', dest='database', required=True,
                        default='SWISS-MODEL', help='Structure database to be used.')
     parser.add_argument('-v', '--verbose', dest='verbose', required=False,
@@ -376,7 +378,7 @@ def main():
             )
             continue
         all_contacts = pdb_utils.search_for_all_contacts(
-            all_aa_residues, radius=8
+            all_aa_residues, radius=args.radius
         )
 
         # calculate expected counts for each codon

@@ -163,15 +163,26 @@ clinvar_benign_ids <- read_tsv(
 clinvar_benign_ids <- clinvar_benign_ids %>% mutate(
   full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
 )
-clinvar_vus_ids <-  read_tsv(
+clinvar_likely_patho_ids <-  read_tsv(
   file = paste(
     data_dir, 
-    "clinvar_unambiguous_vus_ids_20210807.tsv", 
+    "clinvar_unambiguous_likely_pathogenic_ids_20210807.tsv", 
     sep = "/"
   ), 
   col_names = TRUE
 )
-clinvar_vus_ids <- clinvar_vus_ids %>% mutate(
+clinvar_likely_patho_ids <- clinvar_likely_patho_ids %>% mutate(
+  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
+)
+clinvar_likely_benign_ids <- read_tsv(
+  file = paste(
+    data_dir, 
+    "clinvar_unambiguous_likely_benign_ids_20210807.tsv", 
+    sep = "/"
+  ),
+  col_names = TRUE
+)
+clinvar_likely_benign_ids <- clinvar_likely_benign_ids %>% mutate(
   full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
 )
 
@@ -179,43 +190,48 @@ clinvar_vus_ids <- clinvar_vus_ids %>% mutate(
 patho_cosmis <- combined %>% filter(
   full_id %in% clinvar_patho_ids$full_id
 ) %>% mutate(
-  label = 1
+  class = "pathogenic"
 )
 benign_cosmis <- combined %>% filter(
   full_id %in% clinvar_benign_ids$full_id
 ) %>% mutate(
-  label = 0
+  class = "benign"
 )
-vus_cosmis <- combined %>% filter(
-  full_id %in% clinvar_vus_ids$full_id
+likely_patho_cosmis <- combined %>% filter(
+  full_id %in% clinvar_likely_patho_ids$full_id
 ) %>% mutate(
-  label = 0.5
+  class = "likely_pathogenic"
+)
+likely_benign_cosmis <- combined %>% filter(
+  full_id %in% clinvar_likely_benign_ids$full_id
+) %>% mutate(
+  class = "likely benign"
 )
 
 cosmis_clinvar <- rbind(
   patho_cosmis,
   benign_cosmis,
-  vus_cosmis
+  likely_patho_cosmis,
+  likely_benign_cosmis
 )
-cosmis_clinvar <- cosmis_clinvar %>% 
-  mutate(
-    class = factor(
-      ifelse(label == 0, "benign", ifelse(label == 1, "pathogenic", "vus")), 
-      levels = c("benign", "pathogenic", "vus")
-    )
-  )
+cosmis_clinvar <- cosmis_clinvar %>% mutate(
+  class = as_factor(class)
+)
 
 # wilcox test
 # patho <- subset(x = cosmis_clinvar, subset = label == 1)
 # benign <- subset(x = cosmis_clinvar, subset = label == 0)
-w_test <- wilcox.test(vus_cosmis$cosmis, benign_cosmis$cosmis)
+w_test <- wilcox.test(likely_patho_cosmis$cosmis, patho_cosmis$cosmis)
 
 # set plot theme
 plot_margin <- margin(
   t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"
 )
 plot_theme <- theme_classic() + theme(
-  axis.text = element_text(
+  axis.text.x = element_text(
+    size = 16, color = "black", angle = 90, hjust = 1, vjust = 0.5
+  ),
+  axis.text.y = element_text(
     size = 16, color = "black"
   ),
   axis.title.x = element_text(
@@ -232,12 +248,12 @@ plot_theme <- theme_classic() + theme(
 
 # make a violin plot
 cosmis_violin_clinvar <- cosmis_clinvar %>% 
-  filter(class %in% c("benign", "pathogenic", "vus")) %>% 
+  filter(class %in% c("benign", "likely benign", "likely pathogenic", "pathogenic")) %>% 
   ggplot(
     mapping = aes(
-      x = factor(class, levels = c("benign", "vus", "pathogenic")), 
+      x = factor(class, levels = c("benign", "likely benign", "likely pathogenic", "pathogenic")), 
       y = cosmis, 
-      fill = factor(class, levels = c("benign", "vus", "pathogenic"))
+      fill = factor(class, levels = c("benign", "likely benign", "likely pathogenic", "pathogenic"))
     )
   ) +
   geom_violin(
@@ -251,11 +267,7 @@ cosmis_violin_clinvar <- cosmis_clinvar %>%
     outlier.shape = NA
   ) +
   scale_fill_manual(
-    values = c(
-      pnw_palette(name = "Shuksan2", n = 7)[2],
-      "grey",
-      pnw_palette(name = "Shuksan2", n = 7)[6]
-    )
+    values = pnw_palette(name = "Shuksan2", n = 7)[c(2, 3, 5, 6)]
   ) + 
   geom_abline(
     slope = 0, intercept = 0, color = "grey", size = 1, linetype = "dashed"
@@ -264,7 +276,7 @@ cosmis_violin_clinvar <- cosmis_clinvar %>%
     y = "COSMIS score"
   ) +
   scale_x_discrete(
-    labels = c("Benign","VUS", "Pathogenic")
+    labels = c("Benign","Likely Benign", "Likely Pathogenic", "Pathogenic")
   ) +
   scale_y_continuous(
     breaks = seq(-6, 6, 2),
@@ -280,7 +292,7 @@ cosmis_violin_clinvar <- cosmis_clinvar %>%
 ggsave(
   filename = paste(
     figure_dir, 
-    "fig_5a_revised.svg", 
+    "fig_sx_clinvar_cosmis_scores.svg", 
     sep = "/"
   ),
   plot = cosmis_violin_clinvar,

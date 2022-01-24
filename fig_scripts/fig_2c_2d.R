@@ -5,12 +5,12 @@ rm(list = ls())
 
 
 # data and figure paths
-data_dir <- "/path/to/datasets"
-figure_dir <- "/path/to/where/figures/are/stored"
+data_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/results/"
+figure_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/figures/"
 
 # load data sets
 cosmis_df_pdb <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_pdb.tsv", sep = "/"), 
+  file = paste(data_dir, "cosmis_dataset_pdb_10a.tsv", sep = "/"), 
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -50,7 +50,7 @@ cosmis_df_pdb <- read_tsv(
 
 # load swiss model dataset
 cosmis_df_swiss_model <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_swiss_model.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_swiss_model_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -86,7 +86,7 @@ cosmis_df_swiss_model <- read_tsv(
 
 # load alphafold dataset
 cosmis_df_alphafold <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_alphafold.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_alphafold_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -231,7 +231,7 @@ lr_fxn_barplot <- ggplot(
   plot_theme
 
 ggsave(
-  filename = paste(figure_dir, "lr_contact_fxn_barplot.svg", sep = "/"),
+  filename = paste(figure_dir, "fig_2c_10_angstrom", sep = "/"),
   plot = lr_fxn_barplot,
   width = 6,
   height = 6,
@@ -241,7 +241,7 @@ ggsave(
 
 
 ################################################################################
-# Eompute the fraction of neighboring 30 residues (15 on each side) 
+# Compute the fraction of neighboring 30 residues (15 on each side) 
 # along the sequence that are not in contact with the central site.
 ################################################################################
 
@@ -327,7 +327,7 @@ nic_fxn_barplot <- ggplot(
   plot_theme
 
 ggsave(
-  filename = paste(figure_dir, "not_in_contact_fxn_barplot.svg", sep = "/"),
+  filename = paste(figure_dir, "fig_2d_10_angstrom.svg", sep = "/"),
   plot = nic_fxn_barplot,
   width = 6,
   height = 6,

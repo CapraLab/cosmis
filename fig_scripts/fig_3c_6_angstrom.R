@@ -1,17 +1,15 @@
+# load required packages
 library(tidyverse)
 library(PNWColors)
 rm(list = ls())
 
-# data and figure paths
-# data_dir <- "/path/to/datasets"
-# figure_dir <- "/path/to/where/figures/are/stored"
-
-data_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/results"
-figure_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/figures"
+# set data paths
+data_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/results/"
+figure_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/figures/"
 
 # load data sets
 cosmis_df_pdb <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_pdb.tsv", sep = "/"), 
+  file = paste(data_dir, "cosmis_dataset_pdb_10a.tsv", sep = "/"), 
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -51,7 +49,7 @@ cosmis_df_pdb <- read_tsv(
 
 # load swiss model dataset
 cosmis_df_swiss_model <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_swiss_model.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_swiss_model_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -87,7 +85,7 @@ cosmis_df_swiss_model <- read_tsv(
 
 # load alphafold dataset
 cosmis_df_alphafold <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_alphafold.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_alphafold_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -136,90 +134,28 @@ combined <- rbind(
   cosmis_df_alphafold[comm_cols]
 )
 combined <- combined %>% mutate(
-  cosmis = (cs_mis_obs - mis_pmt_mean) / mis_pmt_sd,
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
+  cosmis = (cs_mis_obs - mis_pmt_mean) / mis_pmt_sd
 )
 
-# load variant IDs
-clinvar_patho_ids <-  read_tsv(
-  file = paste(
-    data_dir, 
-    "clinvar_unambiguous_pathogenic_ids_20210807.tsv", 
-    sep = "/"
-  ), 
-  col_names = TRUE
-)
-clinvar_patho_ids <- clinvar_patho_ids %>% mutate(
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
-)
-clinvar_benign_ids <- read_tsv(
-  file = paste(
-    data_dir, 
-    "clinvar_unambiguous_benign_ids_20210807.tsv", 
-    sep = "/"
-  ),
-  col_names = TRUE
-)
-clinvar_benign_ids <- clinvar_benign_ids %>% mutate(
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
-)
-clinvar_vus_ids <-  read_tsv(
-  file = paste(
-    data_dir, 
-    "clinvar_unambiguous_vus_ids_20210807.tsv", 
-    sep = "/"
-  ), 
-  col_names = TRUE
-)
-clinvar_vus_ids <- clinvar_vus_ids %>% mutate(
-  full_id = str_c(uniprot_id, uniprot_pos, sep = "_")
+# proteins with at least one high-confidence sites
+high_confidence <- combined %>% group_by(
+  uniprot_id
+) %>% summarise(
+  f_high_conf = sum(mis_p_value < 0.01) / mean(uniprot_length)
+) %>% filter(
+  f_high_conf > 0
 )
 
-# cosmis scores for ClinVar pathogenic variants
-patho_cosmis <- combined %>% filter(
-  full_id %in% clinvar_patho_ids$full_id
-) %>% mutate(
-  label = 1
-)
-benign_cosmis <- combined %>% filter(
-  full_id %in% clinvar_benign_ids$full_id
-) %>% mutate(
-  label = 0
-)
-vus_cosmis <- combined %>% filter(
-  full_id %in% clinvar_vus_ids$full_id
-) %>% mutate(
-  label = 0.5
-)
-
-cosmis_clinvar <- rbind(
-  patho_cosmis,
-  benign_cosmis,
-  vus_cosmis
-)
-cosmis_clinvar <- cosmis_clinvar %>% 
-  mutate(
-    class = factor(
-      ifelse(label == 0, "benign", ifelse(label == 1, "pathogenic", "vus")), 
-      levels = c("benign", "pathogenic", "vus")
-    )
-  )
-
-# wilcox test
-# patho <- subset(x = cosmis_clinvar, subset = label == 1)
-# benign <- subset(x = cosmis_clinvar, subset = label == 0)
-w_test <- wilcox.test(vus_cosmis$cosmis, benign_cosmis$cosmis)
-
-# set plot theme
 plot_margin <- margin(
   t = 0.5, r = 0.5, b = 0.5, l = 0.5, unit = "cm"
 )
-plot_theme <- theme_classic() + theme(
+hist_plot_theme <- theme_classic() + theme(
+  panel.border = element_blank(),
   axis.text = element_text(
     size = 16, color = "black"
   ),
   axis.title.x = element_text(
-    color = "black", size = 20, margin = margin(t = 10)
+    color = "black", size = 20, margin = margin(t = 10, r = 10)
   ),
   axis.title.y = element_text(
     color = "black", size = 20, margin = margin(r = 10)
@@ -230,60 +166,35 @@ plot_theme <- theme_classic() + theme(
   plot.margin = plot_margin
 )
 
-# make a violin plot
-cosmis_violin_clinvar <- cosmis_clinvar %>% 
-  filter(class %in% c("benign", "pathogenic", "vus")) %>% 
-  ggplot(
-    mapping = aes(
-      x = factor(class, levels = c("benign", "vus", "pathogenic")), 
-      y = cosmis, 
-      fill = factor(class, levels = c("benign", "vus", "pathogenic"))
-    )
+high_conf_sites_hist <-  ggplot() + 
+  geom_histogram(
+    mapping = aes(high_confidence$f_high_conf),
+    binwidth = 0.05,
+    boundary = 0.0,
+    closed = "right",
+    colour = "black",
+    size = 0.25,
+    fill = pnw_palette(name = "Shuksan2", n = 7)[2]
   ) +
-  geom_violin(
-    trim = FALSE,
-    size = 1,
-    alpha = 0.5
-  ) +
-  geom_boxplot(
-    width = 0.2,
-    fill = "white",
-    outlier.shape = NA
-  ) +
-  scale_fill_manual(
-    values = c(
-      pnw_palette(name = "Shuksan2", n = 7)[2],
-      "grey",
-      pnw_palette(name = "Shuksan2", n = 7)[6]
-    )
-  ) + 
-  geom_abline(
-    slope = 0, intercept = 0, color = "grey", size = 1, linetype = "dashed"
-  ) +
-  labs(
-    y = "COSMIS score"
-  ) +
-  scale_x_discrete(
-    labels = c("Benign","VUS", "Pathogenic")
-  ) +
-  scale_y_continuous(
-    breaks = seq(-6, 6, 2),
-    limits = c(-6, 6, 2),
-    labels = sprintf("%.1f", seq(-6, 6, 2)),
+  scale_x_continuous(
+    name = str_wrap(
+      "Fraction of high-confidence constrained sites", width = 30
+    ),
+    limits = c(0.0, 0.8),
     expand = c(0, 0)
   ) +
-  plot_theme + theme(
-    axis.title.x = element_blank()
-  )
+  scale_y_continuous(
+    name = "Number of proteins",
+    limits = c(0, 8000),
+    breaks = seq(0, 8000, 2000),
+    expand = c(0, 0)
+  ) +
+  hist_plot_theme
 
-# save the violin plot to disk
+# save the histogram to disk
 ggsave(
-  filename = paste(
-    figure_dir, 
-    "fig_5a_revised.svg", 
-    sep = "/"
-  ),
-  plot = cosmis_violin_clinvar,
+  filename = paste(figure_dir, "fig_3c_10_angstrom.svg", sep = "/"),
+  plot = high_conf_sites_hist,
   width = 5,
   height = 5,
   units = "in",

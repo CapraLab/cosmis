@@ -11,7 +11,7 @@ figure_dir <- "/Users/lib14/OneDrive/Research/projects/cosmis/figures"
 
 # load data sets
 cosmis_df_pdb <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_pdb.tsv", sep = "/"), 
+  file = paste(data_dir, "cosmis_dataset_pdb_10a.tsv", sep = "/"), 
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -51,7 +51,7 @@ cosmis_df_pdb <- read_tsv(
 
 # load swiss model dataset
 cosmis_df_swiss_model <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_swiss_model.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_swiss_model_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -87,7 +87,7 @@ cosmis_df_swiss_model <- read_tsv(
 
 # load alphafold dataset
 cosmis_df_alphafold <- read_tsv(
-  file = paste(data_dir, "cosmis_dataset_alphafold.tsv", sep = "/"),
+  file = paste(data_dir, "cosmis_dataset_alphafold_10a.tsv", sep = "/"),
   col_names = TRUE,
   col_types = cols(
     uniprot_id = col_character(),
@@ -280,7 +280,7 @@ cosmis_violin_clinvar <- cosmis_clinvar %>%
 ggsave(
   filename = paste(
     figure_dir, 
-    "fig_5a_revised.svg", 
+    "fig_5a_10_angstrom.svg", 
     sep = "/"
   ),
   plot = cosmis_violin_clinvar,

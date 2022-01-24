@@ -75,6 +75,8 @@ def main():
             # CSQs that passed the filters
             for annot in vep_annotations:
                 annot = annot.split('|')
+                if annot[vep_header.index('biotype')] != 'protein_coding':
+                    continue
                 if annot[canonical_index] == 'YES':
                     canonical_transcripts.add((annot[ensg_index], annot[transcript_index]))
 
