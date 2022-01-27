@@ -76,6 +76,56 @@ def get_pdb_chain(pdb_id, pdb_chain, pdb_db=None, pdb_format='pdb'):
     return chain
 
 
+def get_structure(pdb_id, pdb_db=None, pdb_format='pdb'):
+    """
+    Create a Bio.PDB.Structure object for the requested PDB ID.
+
+    Parameters
+    ----------
+    pdb_id : str
+        Four-letter identifier of the PDB file.
+    pdb_db : str
+        Path to the local PDB database.
+    pdb_format : str
+        PDB or MMCif
+
+    Returns
+    -------
+    Structure
+
+    """
+    # check to see if the PDB file is already downloaded
+    # if not, download and store it locally
+    pdb_dir = os.path.join(pdb_db, pdb_id[1:3])
+    if pdb_format.lower() == 'pdb':
+        file_suffix = '.pdb'
+    else:
+        file_suffix = '.cif'
+    pdb_file = os.path.join(
+        pdb_dir, pdb_id + file_suffix
+    )
+    if not os.path.exists(pdb_file):
+        if not os.path.exists(pdb_dir):
+            os.mkdir(pdb_dir)
+
+        pdbl = PDBList()
+        pdb_file = pdbl.retrieve_pdb_file(
+            pdb_id, file_format=pdb_format,
+            pdir=pdb_dir
+        )
+
+    # read in the PDB file
+    if pdb_format.lower() == 'pdb':
+        pdb_parser = PDBParser(PERMISSIVE=1)
+    else:
+        pdb_parser = MMCIFParser(QUIET=True)
+    try:
+        return pdb_parser.get_structure(pdb_id, pdb_file)
+    except (FileNotFoundError, ValueError) as e:
+        print('PDB file cannot be retrieved', pdb_id)
+        return None
+
+
 def get_chain_seq(chain):
     """
 
@@ -98,13 +148,19 @@ def get_chain_seq(chain):
 
 def get_resolution(pdb_id, pdb_path=None):
     """
+    Get the resolution of the structure represented by the given PDB ID.
 
     Parameters
     ----------
-    pdb_id
+    pdb_id : str
+        Four-letter identifier of the PDB file.
+    pdb_path : str
+        Path to the local database where the PDB files are stored.
 
     Returns
     -------
+    float
+        Resolution of the structure in angstroms.
 
     """
     pdbl = PDBList()
@@ -135,18 +191,22 @@ def get_resolution(pdb_id, pdb_path=None):
         return None
 
 
-def search_for_all_contacts(residues, radius=8):
+def search_for_all_contacts(residues, radius=8.0):
     """
     Search for all contacts in the given set of residues based on
     distances between CB atoms.
 
     Parameters
     ----------
-    residues
-    radius
+    residues : list
+        A list of Biopython Residue objects.
+    radius : float
+        The radius within which two residues are considered in contact.
 
     Returns
     -------
+    list
+        A list of Contact objects.
 
     """
     atom_list = []
@@ -198,11 +258,15 @@ def compute_distance_matrix(model, atom='CB'):
 
     Parameters
     ----------
-    model
-    atom
+    model : Bio.PDB.Chain
+        Structure of the protein for which to compute a distance matrix.
+    atom : str
+        Name of the atom based on which to measure inter-residue distance.
 
     Returns
     -------
+    NumPy ndarray
+        A matrix of inter-residue distances.
 
     """
     # get all amino acid residues

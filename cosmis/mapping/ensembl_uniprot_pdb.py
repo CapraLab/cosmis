@@ -165,7 +165,7 @@ class EnsemblUniProtPDB:
         hits = self.mapping_table.query(query_str)
         return set(hits.unique())
 
-    def uniprot_to_pdb(self, uniprot_id):
+    def uniprot_to_pdb(self, uniprot_id, multimeric_state=0):
         """
 
         Parameters
@@ -185,16 +185,31 @@ class EnsemblUniProtPDB:
         if hits.empty:
             return None, None
 
-        pdb_chains = defaultdict(list)
+        pdb_chains = defaultdict(set)
         for _, r in hits.iterrows():
             # skip records where PDB ID or CHAIN ID is empty string
             if r['pdb_id'] and r['pdb_chain']:
-                pdb_chains[r['pdb_id']].append(r['pdb_chain'])
+                pdb_chains[r['pdb_id']].add(r['pdb_chain'])
 
-        # remove duplicates but keep ordering
         uniq_pdb_chains = []
         for k, v in pdb_chains.items():
-            uniq_pdb_chains.append((k, v[0]))
+            if multimeric_state:
+                if len(v) != multimeric_state:
+                    continue
+
+                # make sure that the PDB file has exactly multimeric_state
+                # number of chains
+                query_by_pdb = 'pdb_id == ' + '"' + k + '"'
+                pdb_hits = self.mapping_table.query(query_by_pdb)
+                chain_records = set()
+                for _, x in pdb_hits.iterrows():
+                    if x['pdb_id'] and x['pdb_chain']:
+                        chain_records.add(x['pdb_id'] + x['pdb_chain'])
+                if len(chain_records) != multimeric_state:
+                    continue
+
+            # remove duplicates but keep ordering
+            uniq_pdb_chains.append((k, list(v)[0]))
 
         if not uniq_pdb_chains:
             return None, None
@@ -238,7 +253,21 @@ class EnsemblUniProtPDB:
                     best_chain_id = chain_id
                     best_resolution = resolution
 
-        return best_pdb_id, best_chain_id 
+        return best_pdb_id, best_chain_id
+
+    def pdb_to_uniprot(self, pdb_id, multimer=False):
+        """
+
+        Parameters
+        ----------
+        pdb_id
+        multimer
+
+        Returns
+        -------
+
+        """
+        pass
 
 
 def main():

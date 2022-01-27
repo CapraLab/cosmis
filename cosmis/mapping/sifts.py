@@ -354,7 +354,7 @@ class SIFTS:
             if res.attrib['dbSource'] == 'PDBe':
                 pdb_record =  None
                 uniprot_record = None
-                for db_record in res.getchildren():
+                for db_record in list(res):
                     if db_record.attrib['dbSource'] == 'PDB':
                         pdb_record = db_record
                     if db_record.attrib['dbSource'] == 'UniProt':

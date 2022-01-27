@@ -46,6 +46,10 @@ def parse_cmd():
         '-o', '--output', dest='output', required=False, type=str,
         help='Output file.'
     )
+    parser.add_argument(
+        '--multimeric-state', dest='multimeric_state', type=int, default=0,
+        help='Consider only homo-oligomers.'
+    )
     args = parser.parse_args()
     
     # do any necessary check on command-line arguments here
@@ -68,8 +72,10 @@ def main():
     #
     uniprot_uniq_pdbchains = {}
     for uniprot_id in uniprot_ids:
-        print('Retrieving best PDB chain for %s' % uniprot_id)
-        pdb_id, pdb_chain = ensembl_pdbchain_mappings.uniprot_to_pdb(uniprot_id)
+        print('\nRetrieving best PDB chain for %s' % uniprot_id)
+        pdb_id, pdb_chain = ensembl_pdbchain_mappings.uniprot_to_pdb(
+            uniprot_id, args.multimeric_state
+        )
         if pdb_id is None or pdb_chain is None:
             print('No PDB chains were found for %s' % uniprot_id)
             continue
