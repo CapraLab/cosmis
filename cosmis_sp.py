@@ -147,7 +147,10 @@ def retrieve_data(uniprot_id, enst_ids, pep_dict, cds_dict, variant_dict):
 
     valid_ensts = []
     for enst_id in enst_ids:
-        cds_seq = cds_dict[enst_id].seq
+        try:
+            cds_seq = cds_dict[enst_id].seq
+        except KeyError:
+            continue
         # skip if the CDS is incomplete
         if not seq_utils.is_valid_cds(cds_seq):
             print('Error: Invalid CDS.'.format(enst_id))
