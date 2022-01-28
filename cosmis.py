@@ -58,6 +58,10 @@ def parse_cmd():
         help='''PDB file representing the 3D structure of the protein.'''
     )
     parser.add_argument(
+        '--multimer', dest='multimer', action='store_true', default=False,
+        help='Is the input PDB file a multimer?'
+    )
+    parser.add_argument(
         '-w', '--overwrite', dest='overwrite', required=False, action='store_true', 
         help='''Whether to overwrite already computed COSMIS scores.'''
     )
@@ -221,7 +225,8 @@ def get_dataset_headers():
         'cs_syn_poss', 'cs_mis_poss', 'cs_gc_content', 'cs_syn_prob',
         'cs_syn_obs', 'cs_mis_prob', 'cs_mis_obs', 'mis_pmt_mean', 'mis_pmt_sd',
         'mis_p_value', 'syn_pmt_mean', 'syn_pmt_sd', 'syn_p_value',
-        'enst_syn_obs', 'enst_mis_obs', 'enst_syn_exp', 'enst_mis_exp', 'uniprot_length'
+        'enst_syn_obs', 'enst_mis_obs', 'enst_syn_exp', 'enst_mis_exp', 'uniprot_length',
+        'cosmis'
     ]
     return header
 
@@ -268,7 +273,7 @@ def main():
         # second-level key is a Python list.
         variant_dict = json.load(variant_handle)
 
-    # parse the file that maps Ensembl transcript IDs to PDB IDs 
+    # parse the file that maps protein UniProt IDs to PDB IDs
     with open(configs['uniprot_to_pdb'], 'rt') as ipf:
         uniprot_to_pdb = json.load(ipf)
 
@@ -292,7 +297,11 @@ def main():
             uniprot_id = line.strip()
             print('Processing UniProt ID: %s' % uniprot_id)
             cosmis = []
-            cosmis_file = os.path.join(output_dir, uniprot_id + '_cosmis.tsv')
+            if args.multimer:
+                output_suffix = '_cosmis_multimer.tsv'
+            else:
+                output_suffix = '_cosmis_monomer.tsv'
+            cosmis_file = os.path.join(output_dir, uniprot_id + output_suffix)
             # skip if it was already computed and overwrite not requested
             if os.path.exists(cosmis_file) and not args.overwrite:
                 print('Scores for %s already exist, skipped.' % uniprot_id)
@@ -385,7 +394,11 @@ def main():
                 continue
             
             # get all contact pairs in the PDB structure
-            all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa, standard=True)]
+            if args.multimer:
+                structure = pdb_utils.get_structure(pdb_id, configs['pdb_dir'], 'mmCif')
+                all_aa_residues = [aa for aa in structure.get_residues() if is_aa(aa, standard=True)]
+            else:
+                all_aa_residues = [aa for aa in chain.get_residues() if is_aa(aa, standard=True)]
             all_contacts = pdb_utils.search_for_all_contacts(
                 all_aa_residues, radius=args.radius
             )
@@ -548,6 +561,7 @@ def main():
                             total_exp_syn_counts,
                             total_exp_mis_counts,
                             len(pep_seq),
+                            '{:.3f}'.format((total_missense_obs - mis_pmt_mean) / mis_pmt_sd)
                         ]
                     )
                 else:

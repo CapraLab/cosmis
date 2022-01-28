@@ -31,7 +31,6 @@ six=1.16.0=pyhd3eb1b0_0
 sqlite=3.37.0=h707629a_0
 tk=8.6.11=h7bc2e8c_0
 tzdata=2021e=hda174b7_0
-wget=3.2=pypi_0
 wheel=0.37.1=pyhd3eb1b0_0
 xz=5.2.5=h1de35cc_0
 zlib=1.2.11=h4dc903c_4
