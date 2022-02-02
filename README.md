@@ -92,14 +92,23 @@ Depending on whether you want run COSMIS on a single monomeric protein or homo-m
 ```
 Then, save the file as `data_paths.json`, for example.
 
-1.2 If you want to compute COSMIS score WITHOUT accounting for contacts from neighboring subunits. Run this command
+1.2 If you'd like to compute COSMIS score WITHOUT accounting for contacts from neighboring subunits. Run this command
 ```bash
 python cosmis_sp.py -c data_paths.json -u <UniProt ID> -p <PDB file> --chain <chain ID of subunit> -o monomeric_cosmis.tsv
 ```
 
-1.3 If you want to compute COSMIS score accounting for contacts from neighboring subunits. Add `--multimer` to the command above, i.e.
+1.3 If you'd to compute COSMIS score accounting for contacts from neighboring subunits. Add `--multimer` to the command above, i.e.
 ```bash
-python cosmis_sp.py -c data_paths.json -u <UniProt ID> -p <PDB file> --chain <chain ID of subunit> -o multimeric_cosmis.tsv -- multimer
+python cosmis_sp.py -c data_paths.json -u <UniProt ID> -p <PDB file> --chain <chain ID of subunit> -o multimeric_cosmis.tsv --multimer
+```
+
+1.4 One can also run the following command to compute COSMIS scores for a subunit which is part of a hetero-oligomeric protein complex. However, `cosmis_complex.py` has not been thoroughly tested or benchmarked. Interpret the results with caution and let us know if you find anything buggy.
+```bash
+python cosmis_complex.py -c data_path.json -i <chain_to_uniprot_mapping file> -p <PDB file> --chain <chain ID of subunit> -o <output file>
+
+# example
+cd examples/
+python ../cosmis_complex.py -c cosmis_config.json -i KCNQ1_chain_to_uniprot.txt -p KCNQ1.pdb -o KCNQ1_cosmis.tsv --chain A
 ```
 
 2. Run COSMIS on a list of monomeric proteins whose structures were obtained from AlphaFold database or SWISS-MODEL repository.

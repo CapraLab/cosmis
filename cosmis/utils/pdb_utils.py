@@ -302,3 +302,88 @@ def compute_distance_matrix(model, atom='CB'):
     return np.array(res_distances)
 
 
+def compute_distance_dict(model, atom='CB'):
+    """
+    Computes an L * L matrix consisting the distances between residues.
+
+    Parameters
+    ----------
+    model : Bio.PDB.Chain
+        Structure of the protein for which to compute a distance matrix.
+    atom : str
+        Name of the atom based on which to measure inter-residue distance.
+
+    Returns
+    -------
+    dict
+        A dictionary of inter-residue distances, keyed by residue position pairs.
+
+    """
+    # get all amino acid residues
+    all_aa_res = []
+    for res in model.get_residues():
+        if is_aa(res):
+            all_aa_res.append(res)
+
+    # get all measurement points
+    distances = {}
+    for res_a in all_aa_res:
+        # get the right atom
+        point_a = atom
+        if atom == 'CB' and res_a.get_resname() == 'GLY':
+            point_a = 'CA'
+        try:
+            res_a_atom = res_a[point_a]
+        except KeyError:
+            print('Missing {} in {}. Skipped!'.format(point_a, res_a))
+            continue
+        for res_b in all_aa_res:
+            # get the right atom
+            point_b = atom
+            if atom == 'CB' and res_b.get_resname() == 'GLY':
+                point_b = 'CA'
+            try:
+                res_b_atom = res_b[point_b]
+            except KeyError:
+                print('Missing {} in {}. Skipped!'.format(point_b, res_b))
+                continue
+
+            distances[(res_a.get_id()[1], res_b.get_id()[1])] = res_a_atom - res_b_atom
+
+    return distances
+
+
+def compute_mean_distance(residues):
+    """
+
+    Parameters
+    ----------
+    residues
+
+    Returns
+    -------
+
+    """
+    # get the atoms for computing the distances
+    atoms = []
+    for r in residues:
+        if r.get_resname() == 'GLY':
+            try:
+                atoms.append(r['CA'])
+            except KeyError:
+                print(f'No CA atom found for GLY: {r} skipped ...')
+                continue
+        else:
+            try:
+                atoms.append(r['CB'])
+            except KeyError:
+                print(f'No CB atom found for: {r} skipped ...')
+                continue
+
+    # compute the mean pairwise distance
+    distances = []
+    for i, a1 in enumerate(atoms):
+        for _, a2 in enumerate(atoms, i + 1):
+            distances.append(a1 - a2)
+
+    return np.mean(distances)

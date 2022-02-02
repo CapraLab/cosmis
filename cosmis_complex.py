@@ -296,7 +296,7 @@ def get_transcript_info(
             max_len = var_pos
             best_enst_id = enst_id
 
-    print(f'Best ENST ID for {uniprot_id} is {best_enst_id}.')
+    # print(f'Best ENST ID for {uniprot_id} is {best_enst_id}.')
 
     # get the amino acid sequence of the transcript
     try:
