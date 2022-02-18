@@ -19,6 +19,7 @@ import csv
 import gzip
 import json
 import sys
+import logging
 import numpy as np
 from argparse import ArgumentParser
 from collections import defaultdict
@@ -53,6 +54,8 @@ def parse_cmd():
     parser.add_argument('-o', '--output', dest='output_file', required=True,
                         type=str, help='''Output file to store the COSMIS scores
                         of the protein.''')
+    parser.add_argument('-l', '--log', dest='log_file', required=False, type=str,
+                        default='cosmis_complex.log', help='''Logging file.''')
     parser.add_argument('--chain', dest='pdb_chain', default='A', type=str,
                         help='Chain ID of the subunit in the PBD file.')
     parser.add_argument('-w', '--overwrite', dest='overwrite', required=False,
@@ -85,55 +88,22 @@ def get_ensembl_accession(record):
     return parts[0]
 
 
-def get_ccds_accession(record):
-    """
-
-    Parameters
-    ----------
-    record
-
-    Returns
-    -------
-
-    """
-    parts = record.id.split('|')
-    return parts[0]
-
-
 def get_uniprot_accession(record):
     """
+    Convenience function to work with Biopython SeqIO.
+
     Parameters
     ----------
-    record
+    record : Biopython SeqRecord
+        A Biopython SeqRecord object.
+
     Returns
     -------
+    str
+        UniProt accession code.
     """
     parts = record.id.split('|')
     return parts[1]
-
-
-def get_transcript_pep_seq(enst_id, ensp_id, pep_dict):
-    """
-
-    Parameters
-    ----------
-    enst_id : str
-
-    ensp_id : str
-
-    pep_dict : dict
-
-    Returns
-    -------
-
-    """
-    try:
-        transcript_pep = pep_dict[ensp_id].seq
-    except KeyError:
-        print('%s not found in given database' % ensp_id)
-        print('%s was skipped ...' % enst_id)
-        return None
-    return transcript_pep
 
 
 def parse_config(config):
@@ -177,7 +147,6 @@ def count_variants(variants):
         variants and one dictionary for synonymous variants.
 
     """
-    #
     missense_counts = defaultdict(int)
     synonymous_counts = defaultdict(int)
     for variant in variants:
@@ -193,66 +162,6 @@ def count_variants(variants):
         else:  # synonymous variant
             synonymous_counts[int(pos)] += 1
     return missense_counts, synonymous_counts
-
-
-def parse_ensembl_cds(file=None):
-    """
-
-    Parameters
-    ----------
-    file
-
-    Returns
-    -------
-
-    """
-    print('Parsing ENSEMBL concensus coding sequence database ...')
-    with gzip.open(file, mode='rt') as cds_handle:
-        ensembl_cds_dict = SeqIO.to_dict(
-            SeqIO.parse(cds_handle, format='fasta'),
-            key_function=get_ensembl_accession
-        )
-    return ensembl_cds_dict
-
-
-def parse_ccds(file=None):
-    """
-
-    Parameters
-    ----------
-    file
-
-    Returns
-    -------
-
-    """
-    print('Parsing NCBI CCDS database ...')
-    with gzip.open(file, mode='rt') as ccds_handle:
-        ccds_dict = SeqIO.to_dict(
-            SeqIO.parse(ccds_handle, format='fasta'),
-            key_function=get_ccds_accession
-        )
-    return ccds_dict
-
-
-def parse_ensembl_pep(file=None):
-    """
-
-    Parameters
-    ----------
-    file
-
-    Returns
-    -------
-
-    """
-    print('Parsing Ensembl protein sequence database ...')
-    with gzip.open(file, mode='rt') as pep_handle:
-        pep_dict = SeqIO.to_dict(
-            SeqIO.parse(pep_handle, format='fasta'),
-            key_function=get_ensembl_accession
-        )
-    return pep_dict
 
 
 def get_transcript_info(
@@ -272,7 +181,11 @@ def get_transcript_info(
 
     valid_ensts = []
     for enst_id in enst_ids:
-        cds_seq = cds_dict[enst_id].seq
+        try:
+            cds_seq = cds_dict[enst_id].seq
+        except KeyError:
+            logging.critical(f'No CDS found for {enst_id} in Ensembl CDS database!')
+            continue
         # skip if the CDS is incomplete
         if not seq_utils.is_valid_cds(cds_seq):
             print('Error: Invalid CDS.'.format(enst_id))
@@ -303,36 +216,28 @@ def get_transcript_info(
         # Ensembl peptide ID for the transcript
         ensp_id = variant_dict[best_enst_id]['ensp'][0]
     except KeyError:
-        print(
-            'Transcript %s not found in gnomAD database',
-            best_enst_id
-        )
+        logging.critical('Transcript {best_enst_id} not found in gnomAD database')
         sys.exit(1)
 
     try:
         total_exp_mis_counts = enst_mp_counts[best_enst_id][-1]
         total_exp_syn_counts = enst_mp_counts[best_enst_id][-2]
     except KeyError:
-        print(
-            'Transcript {} not found.'.format(best_enst_id)
-        )
+        logging.critical(f'Transcript {best_enst_id} not found in transcript variant count file.')
         sys.exit(1)
 
     # get all variants of this transcript reported in gnomAD
     try:
         variants = variant_dict[best_enst_id]['variants']
     except KeyError:
-        print('No variants found for %s in gnomAD', best_enst_id)
+        logging.critical(f'No variants found for {best_enst_id} in gnomAD')
         sys.exit(1)
 
     # get the coding sequence of the transcript
     try:
         transcript_cds = cds_dict[best_enst_id].seq
     except KeyError:
-        print(
-            '''No CDS found in Ensembl CDS database! 
-            Looking for it in the CCDS database ...'''
-        )
+        logging.critical(f'No CDS found for {best_enst_id} in Ensembl CDS database!')
         transcript_cds = None
 
     # check that the CDS does not contain invalid nucleotides
@@ -418,6 +323,14 @@ def main():
     # parse command-line arguments
     args = parse_cmd()
 
+    # configure the logging system
+    logging.basicConfig(
+        filename=args.log_file,
+        level=logging.INFO,
+        filemode='w',
+        format='%(levelname)s:%(asctime)s:%(message)s'
+    )
+
     # parse configuration file
     configs = parse_config(args.config)
 
@@ -431,7 +344,7 @@ def main():
         }
     uniprot_id = chain_uniprot_pairs[args.pdb_chain]
 
-    #
+    # data structures for storing stats and annotations
     cosmis_scores = []
     ensp_ids = {}
     codon_mutation_rates = {}
