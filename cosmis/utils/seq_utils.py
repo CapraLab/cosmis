@@ -5,26 +5,6 @@ from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES_UNI
 import numpy as np
 
 
-def place_holder():
-    """
-
-    Returns
-    -------
-
-    """
-    pass
-
-
-def main():
-    """
-
-    Returns
-    -------
-
-    """
-    pass
-
-
 def count_codon_ns(codon):
     """
     Count the respective number of possible missense and synonymous SNPs of the
