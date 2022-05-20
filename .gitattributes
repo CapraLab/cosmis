@@ -1,3 +1,5 @@
 structures/alphafold_structures.tar.gz filter=lfs diff=lfs merge=lfs -text
 structures/pdb_structures.tar.gz filter=lfs diff=lfs merge=lfs -text
 structures/swiss_model_structures.tar.gz filter=lfs diff=lfs merge=lfs -text
+*cosmis_dataset*.tsv.gz filter=lfs diff=lfs merge=lfs -text
+figure-code-data/fig_4a/data/af2_dataset_pli_mis_z.csv filter=lfs diff=lfs merge=lfs -text

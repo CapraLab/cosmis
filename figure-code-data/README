@@ -1,0 +1,45 @@
+This folder contains the source code and raw data for reproducing the panels in all main text figures
+and supplementary figures in the associated publication. When you attempt to run the code to reproduce 
+those figures please set "data_dir" to the path to where this folder is located on your local machine.
+Thank you very much for your interest in our work!
+
+
+Dependencies (R packages)
+--------------------------
+plotROC 2.2.1
+PNWColors release 1
+R 4.0.2
+ROCR 1.0-11
+Tidyverse 1.3.1
+
+
+Description of column names in the dataset files
+------------------------------------------------
+uniprot_id: UniProt ID of the protein
+enst_id: Ensembl ID of the transcript used in this work
+uniprot_pos: Position of the amino acid residue in the UniProt protein sequence
+uniprot_aa: One-letter code of the amino acid residue in the UniProt protein sequence
+pdb_pos: Position of the amino acid residue in the PDB file
+pdb_aa: One-letter code of the amino acid residue in the PDB file
+pdb_id: Four-letter PDB accession code of the 3D structure file
+chain_id: ID of the chain corresponding to this protein in the PDB file
+seq_separations: Separations (measured by the number of amino acid residues apart along the sequence) of residues that are in contact with this residue 
+num_contacts: Number of residues that are in contact with this residue, including this residue
+cs_syn_poss: Total number of unique synonymous variants possible in the contact set defined for this residue
+cs_mis_poss: Total number of unique missense variants possible in the contact set defined for this residue
+cs_gc_content: GC content of the codons of the contact set defined for this residue
+cs_syn_prob: Total synonymous mutability of the contact set defined for this residue
+cs_syn_obs: Total number of unique synonymous variants observed in the contact set defined for this residue
+cs_mis_prob: Total missense mutability of the contact set defined for this residue
+cs_mis_obs: Total number of unique missense variants observed in the contact set defined for this residue
+mis_pmt_mean: Mean number of unique missense variants in the contact set defined for this residue, based on permutation
+mis_pmt_sd: Standard deviation of the number of unique missense variants in the contact set defined for this residue, based on permutation
+mis_p_value: Empirical p value for the COSMIS score, based on permutation
+syn_pmt_mean: Mean number of unique synonymous variants in the contact set defined for this residue, based on permutation
+syn_pmt_sd: Standard deviation of the number of unique synonymous variants in the contact set defined for this residue, based on permutation
+syn_p_value: Empirical p value for the synonymous counterpart of the COSMIS score (i.e. cossyn, Supplementary Figure 6b), based on permutation
+enst_syn_obs: Total number of unique synonymous variants observed in this transcript
+enst_mis_obs: Total number of unique missense variants observed in this transcript
+enst_syn_exp: Total number of unique synonymous variants expected in this transcript
+enst_mis_exp: Total number of unique missense variants expected in this transcript
+uniprot_length: Total number of amino acid residues in the UniProt protein sequence
