@@ -7,14 +7,11 @@ COSMIS is a novel framework for quantifying the 3D spatial constraint of amino a
 ### cosmis
 The `cosmis` folder contains utility code that the top level cosmis code `cosmis.py`, `cosmis_batch.py`, and `cosmis_sp.py` depend on.
 
-### fig_scripts
-The `fig_scripts` folder contains standlone R code that can be run to reproduce figures in the main text and supplementary document of the manuscript.
+### figure-code-data
+The `figure-code-data` folder contains standlone R code that can be run to reproduce figures in the main text and supplementary document of the manuscript.
 
-### data
-The `data` folder constains all raw and processed data that code in the `fig_scripts` will load to reproduce the figures.
-
-### scores
-The `scores` folder constains precomputed scores for all 16,533 proteins of the human reference proteome currently covered by the framework.
+### cosmis-scores
+The `cosmis-scores` folder constains precomputed scores for all 16,533 proteins of the human reference proteome currently covered by the framework.
 
 ### scripts
 The `scripts` folder contains all scripts written in Python that were called to obtain processed datasets in the `data` folder.
@@ -22,8 +19,8 @@ The `scripts` folder contains all scripts written in Python that were called to 
 ### structures
 The `structures` folder contains all protein structure in the PDB format based on which COSMIS scores were computed.
 
-### supplementary_tables
-The `supplementray_tables` folder contains all supplementary tables referred to in the COSMIS paper.
+### supplementary-data
+The `supplementray-data` folder contains all supplementary tables referred to in the published COSMIS paper.
 
 ## Using the COSMIS framework
 It is recommended that interested users of the COSMIS framework download precomputed COSMIS scores from this repository. However, should you need to run COSMIS using custom-built protein structural models, or to compute COSMIS scores based on protein-protein complexes, please follow the following steps.
