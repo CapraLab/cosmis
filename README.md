@@ -1,6 +1,6 @@
 # COSMIS
-COSMIS is a novel framework for quantifying the 3D spatial constraint of amino acid sites in the human proteome. If you find COSMIS useful in your work, please consider citing the COSMIS paper: 
-* Li, B., Roden, D.M., and Capra, J.A. (2021). The 3D spatial constraint on 6.1 million amino acid sites in the human proteome. bioRxiv. doi: https://doi.org/10.1101/2021.09.15.460390
+COSMIS is a novel framework for quantifying the 3D mutational constraint on amino acid sites in the human proteome. If you find COSMIS useful in your work, please consider citing the following paper: 
+* Li, B., Roden, D.M., and Capra, J.A. [The 3D mutational constraint on amino acid sites in the human proteome](https://www.nature.com/articles/s41467-022-30936-x). *Nat. Commun.* **13**, 3273 (2022).
 
 ## What's in each folder?
 
@@ -30,6 +30,7 @@ Clone COSMIS to a local directory.
 ```bash
 git clone https://github.com/CapraLab/cosmis.git
 ```
+Note that cloning might fail as this repository is tracked with [Git Large File Storage](https://git-lfs.github.com/) and is over the data quota currently allowed by Git LFS. Please check later as we sorting out this quota issue.
 
 ### Set up conda environment
 COSMIS depends on several Python packages. It is easiest to set up a separate conda environment to installed all required packages and to run COSMIS. All required packages can be installed when creating the conda environment, using the following commands:
