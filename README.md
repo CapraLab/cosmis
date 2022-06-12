@@ -30,7 +30,7 @@ Clone COSMIS to a local directory.
 ```bash
 git clone https://github.com/CapraLab/cosmis.git
 ```
-Note that cloning might fail as this repository is tracked with [Git Large File Storage](https://git-lfs.github.com/) and is over the data quota currently allowed by Git LFS. Please check later as we sorting out this quota issue.
+Note that cloning might fail as this repository is tracked with [Git Large File Storage](https://git-lfs.github.com/) and is over the data quota currently allowed by Git LFS. Please check later as we are sorting out this quota issue.
 
 ### Set up conda environment
 COSMIS depends on several Python packages. It is easiest to set up a separate conda environment to installed all required packages and to run COSMIS. All required packages can be installed when creating the conda environment, using the following commands:
