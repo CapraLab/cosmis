@@ -14,7 +14,7 @@ The `figure-code-data` folder contains standlone R code that can be run to repro
 The `cosmis-scores` folder constains precomputed scores for all 16,533 proteins of the human reference proteome currently covered by the framework.
 
 ### scripts
-The `scripts` folder contains all scripts written in Python that were called to obtain processed datasets in the `data` folder.
+The `scripts` folder contains all scripts written in Python that were called to obtain processed datasets in the `mapping-files` folder.
 
 ### structures
 The `structures` folder contains all protein structure in the PDB format based on which COSMIS scores were computed.
