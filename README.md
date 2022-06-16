@@ -23,7 +23,7 @@ The `structures` folder contains all protein structure in the PDB format based o
 The `supplementray-data` folder contains all supplementary tables referred to in the published COSMIS paper.
 
 ## Using the COSMIS framework
-It is recommended that interested users of the COSMIS framework download precomputed COSMIS scores from this repository. However, should you need to run COSMIS using custom-built protein structural models, or to compute COSMIS scores based on protein-protein complexes, please follow the following steps.
+It is recommended that interested users of the COSMIS framework download precomputed COSMIS scores from this repository. However, should you need to run COSMIS using custom-built protein structural models, or to compute COSMIS scores based on protein-protein complexes, please follow the steps below. Also note that we are in the processing of repackaging COSMIS into a installable Python package, check later for updates.
 
 ### Clone COSMIS
 Clone COSMIS to a local directory.
