@@ -1,6 +1,5 @@
 from cosmis.mutation_rates.trinucleotide_context_rates import MUTATION_RATES
 from cosmis.utils.genetic_code import GENETIC_CODE
-from cosmis.mapping import ensembl_uniprot_pdb
 
 
 class ContactSet:

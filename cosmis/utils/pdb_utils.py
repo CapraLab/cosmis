@@ -12,7 +12,6 @@ import os
 import numpy as np
 from Bio.Seq import Seq
 from Bio.PDB import PDBParser, PDBList, PPBuilder
-from Bio.PDB import parse_pdb_header
 from Bio.PDB import NeighborSearch
 from Bio.PDB import is_aa
 from Bio.PDB import MMCIFParser

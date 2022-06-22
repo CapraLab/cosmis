@@ -1,7 +1,6 @@
 #!/usr/bin/env python3
 
 import gzip
-from collections import defaultdict
 from argparse import ArgumentParser
 
 
