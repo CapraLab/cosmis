@@ -36,7 +36,7 @@ git clone https://github.com/CapraLab/cosmis.git
 Note that cloning might fail as this repository is tracked with [Git Large File Storage](https://git-lfs.github.com/) and is over the data quota currently allowed by Git LFS. Please check later as we are sorting out this quota issue.
 
 ### Install from source
-To install `cosmis` from source, go to the directory where 'cosmis' was cloned and run the following command:
+To install `cosmis` from source, go to the directory where `cosmis` was cloned and run the following command:
 ```bash
 python3 setup.py install
 
