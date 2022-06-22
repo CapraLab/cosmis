@@ -35,14 +35,20 @@ git clone https://github.com/CapraLab/cosmis.git
 ```
 Note that cloning might fail as this repository is tracked with [Git Large File Storage](https://git-lfs.github.com/) and is over the data quota currently allowed by Git LFS. Please check later as we are sorting out this quota issue.
 
-### Set up conda environment
-COSMIS depends on several Python packages. It is easiest to set up a separate conda environment to installed all required packages and to run COSMIS. All required packages can be installed when creating the conda environment, using the following commands:
+### Install from source
+To install `cosmis` from source, go to the directory where 'cosmis' was cloned and run the following command:
 ```bash
-# if your platform is Linux based, run this
-conda create --name cosmis --file requirements_linux.txt
+python3 setup.py install
 
-# if your platform is OSX based, run this
-conda create --name cosmis --file requirements_osx.txt
+export PYTHONPATH="$PYTHONPATH:</path/to/cosmis>"
+```
+Replace `</path/to/cosmis>` with the actual path to `cosmis` on your system. You should then be able to locate the main applications scripts in `./build/scripts-3.8` or `./build/scripts-3.9` depending on the Python version on your system. You can copy these scripts to a convenient location of your choice to run them. 
+
+### Run within a virtual environment
+One can also run `cosmis` application scripts within a virtual environment. It is easiest to set up a separate conda environment to install all required packages and to run these scripts. All required packages can be installed when creating the conda environment, using the following commands:
+```bash
+# run this command to create a conda environment
+conda create --name cosmis --file requirements.txt
 
 # activate the environment
 conda activate cosmis
