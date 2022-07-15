@@ -15,14 +15,16 @@ from Bio.PDB.DSSP import DSSP
 from cosmis.mapping.ensembl_uniprot_pdb import SIFTS
 
 
+DSSP_BIN='/path/to/mkdssp'
+
+
 def parse_cmd_args():
     """
-    
+    Parse command-line arguments.
 
     Returns
     -------
-    None.
-
+    Parsed command-line arguments.
     """
     cmd_parser = ArgumentParser()
     cmd_parser.add_argument(
@@ -57,8 +59,6 @@ def parse_cmd_args():
 
 
 def main():
-    """
-    """
     # parse command-line arguments
     cmd_args = parse_cmd_args()
 
@@ -69,13 +69,8 @@ def main():
         filemode='w',
         format='%(levelname)s:%(asctime)s:%(message)s'
     )
- 
-    #
-    if cmd_args.input.split('.') == 'pdb':
-        pdb_parser = PDBParser(PERMISSIVE=1)
-        pdb_struct = pdb_parser.get_structure('tmp', cmd_args.input)
     
-    # 
+    # parse all 
     with open(cmd_args.input, 'rt') as ipf:
         uniprot_to_struct = [l.strip().split(' ') for l in ipf]
     
@@ -99,11 +94,11 @@ def main():
         model_for_dssp = parsed_struct[0]
         
         # call mkdssp
-        print('Computing RSA for {} using structure at {}.'.format(uniprot, struct_file))
+        print(f'Computing RSA for {uniprot} using structure at {struct_file}.')
         try:
-            dssp = DSSP(model_for_dssp, struct_file, dssp='/dors/capra_lab/bin/mkdssp')
+            dssp = DSSP(model_for_dssp, struct_file, dssp=DSSP_BIN)
         except:
-            logging.critical('Failed to compute RSA for {}..'.format(uniprot))
+            logging.critical(f'Failed to compute RSA for {uniprot}.')
             continue
         
         # create a mapping of pdb_pos to rsa
@@ -133,8 +128,7 @@ def main():
     # write to file
     with open(cmd_args.output, 'wt') as opf:
         json.dump(uniprot_to_rsa, opf, indent=4)
-            
-            
+
 
 if __name__ == '__main__':
     main()
