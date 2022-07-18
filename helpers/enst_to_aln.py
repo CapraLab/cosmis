@@ -14,12 +14,17 @@ warnings.simplefilter('ignore', BiopythonWarning)
 
 def parse_cmd_args():
     """
-
+    Parse command-line flags and their arguments.
+    
     Returns
     -------
-
+    Parsed command-line flags and arguments.
     """
-    parser = ArgumentParser(description='''To be added ...''')
+    parser = ArgumentParser(
+        description='''This script extracts multiple sequence alignments from 
+        the UCSC 100/30-way sequence alignment file for the given list of 
+        transcripts'''
+    )
     parser.add_argument(
         '-i', '--input', dest='transcripts', type=str, required=True,
         help='''A lists of Ensembl transcript IDs for which the alignment is to
@@ -47,12 +52,6 @@ def parse_cmd_args():
 
 
 def main():
-    """
-
-    Returns
-    -------
-
-    """
     # parse command-line arguments
     args = parse_cmd_args()
 
@@ -86,11 +85,9 @@ def main():
                     species_seqs = defaultdict(str)
 
             else:
-                cur_exon, last_exon = [int(x) for x in id_fields[2:4]]
-                if cur_exon <= last_exon:
-                    species_seqs[species] += seq_record.seq
+                species_seqs[species] = seq_record.seq
 
-                if cur_exon == last_exon and species == 'petMar2':
+                if species == 'petMar2':
                     alignments[enst_id_major] = species_seqs
                     # reset for the next transcript
                     species_seqs = defaultdict(str)
