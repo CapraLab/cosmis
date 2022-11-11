@@ -14,16 +14,16 @@ import numpy as np
 from collections import defaultdict
 from argparse import ArgumentParser
 from cosmis.mapping.sifts import SIFTS
-from cosmis.utils import pdb_utils
+from cosmis import pdb_utils
 from Bio import SeqIO
 from Bio.SeqUtils import seq1
 from Bio.PDB import is_aa
-from cosmis.utils.seq_utils import get_codon_mutation_rates
-from cosmis.utils.seq_utils import count_poss_ns_variants
-from cosmis.utils.seq_utils import get_codon_seq_context
-from cosmis.utils.seq_utils import gc_content
-from cosmis.utils.seq_utils import count_cg_gc
-from cosmis.utils.pdb_utils import search_for_all_contacts
+from cosmis.seq_utils import get_codon_mutation_rates
+from cosmis.seq_utils import count_poss_ns_variants
+from cosmis.seq_utils import get_codon_seq_context
+from cosmis.seq_utils import gc_content
+from cosmis.seq_utils import count_cg_gc
+from cosmis.pdb_utils import search_for_all_contacts
 
 from Bio import BiopythonWarning
 import warnings

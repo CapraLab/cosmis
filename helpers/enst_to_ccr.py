@@ -5,7 +5,7 @@ import gzip
 from Bio import SeqIO
 from argparse import ArgumentParser
 from collections import defaultdict
-from cosmis.utils import seq_utils
+from cosmis import seq_utils
 
 
 def parse_cmd_args():

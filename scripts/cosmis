@@ -1,7 +1,13 @@
 #!/usr/bin/env python3
 
 """
-To add a brief summary of this script.
+    COSMIS is a computational method that integrates genome variants and protein structures
+    in a statistical framework to quantify the depletion of genetic variation from the 3D
+    neighborhood of amino acid residues. For details about the methodology and what questions
+    COSMIS can help answer, please refer to the following publication:
+
+    Li, B., Roden, D.M., and Capra, J.A. The 3D mutational constraint on amino acid sites in
+    the human proteome. Nat. Commun. 13, 3273 (2022).
 """
 
 import csv
@@ -20,7 +26,7 @@ from Bio.PDB import is_aa
 from Bio.SeqUtils import seq1
 
 from cosmis.mapping.sifts import SIFTS
-from cosmis.utils import pdb_utils, seq_utils
+from cosmis import seq_utils, pdb_utils
 
 warnings.simplefilter('ignore', BiopythonWarning)
 
@@ -79,47 +85,19 @@ def parse_cmd():
     return parser.parse_args()
 
 
-def get_ensembl_accession(record):
-    """
-
-    Parameters
-    ----------
-    record : str
-        Record ID is of the format: ">CCDS2.2|Hs109|chr1"
-
-    Returns
-    -------
-
-    """
-    parts = record.id.split('.')
-    return parts[0]
-
-
-def get_uniprot_accession(record):
-    """
-
-    Parameters
-    ----------
-    record
-
-    Returns
-    -------
-
-    """
-    parts = record.id.split('|')
-    return parts[1]
-
-
 def parse_config(config):
     """
+    Simple utility function that parses the paths of necessary input files into a dict.
 
     Parameters
     ----------
-    config
+    config : str
+        Configuration file in JSON format.
 
     Returns
     -------
-
+    dict
+        Paths to necessary input files stored in a dict.
     """
     with open(config, 'rt') as ipf:
         configs = json.load(ipf)
@@ -166,6 +144,35 @@ def count_variants(variants):
 
 def retrieve_data(uniprot_id, enst_ids, pep_dict, cds_dict, variant_dict):
     """
+    Retrieve necessary data from peptide, CDS, and variant dictionaries for a
+    given pair of UniProt accession and Ensembl transcript identifiers.
+
+    Note that the way how the "right" Ensembl transcript ID is determined for
+    the given UniProt accession is purely heuristic, i.e. CDS needs to be valid
+    as checked by is_valid_cds(), if multiple Ensembl transcripts are valid,
+    then the one that has the most gnomAD variants is chosen.
+
+    Parameters
+    ----------
+    uniprot_id : str
+        UniProt accession of the protein.
+    enst_ids : str
+        Ensembl transcript IDs that pairs with the UniProt accession.
+    pep_dict : dict
+        Lookup table of protein sequences keyed by UniProt accessions.
+    cds_dict : dict
+        Lookup table of consensus coding sequences keyed by Ensembl transcript IDs.
+    variant_dict : dict
+        Lookup table of gnomAD variants keyed by Ensembl transcript IDs.
+
+    Returns
+    -------
+    tuple
+        Ensembl ID of the optimal transcript paired with the UniProt accession,
+        Amino acid sequence of the protein identified by the UniProt accession,
+        Consensus coding sequence of the optimal transcript,
+        gnomAD variants of tje optimal transcript.
+
     """
     pep_seq = pep_dict[uniprot_id]
 
@@ -231,6 +238,40 @@ def get_dataset_headers():
     return header
 
 
+def parse_sequence_file(seq_file, seq_db=None, seq_format='fasta'):
+    """
+    Simple utility function that parses sequences into a dict keyed by sequence
+    identifiers assigned by the sequence database.
+
+    Parameters
+    ----------
+    seq_file : str
+        Path to gzipped sequence file.
+    seq_db : str
+        Name of sequence database: Ensembl or UniProt.
+    seq_format : str
+        Format of the sequences, i.e. fasta or others.
+
+    Returns
+    -------
+    dict
+        Sequences stored in a dict keyed by sequence identifiers assigned by the
+        sequence database.
+
+    """
+    with gzip.open(seq_file, 'rt') as seq_handle:
+        if seq_db.lower() == 'ensembl':
+            seq_key_func = seq_utils.get_ensembl_accession
+        else:
+            seq_key_func = seq_utils.get_uniprot_accession
+
+        seq_dict = SeqIO.to_dict(
+            SeqIO.parse(seq_handle, format=seq_format),
+            key_function=seq_key_func
+        )
+    return seq_dict
+
+
 def main():
     # parse command-line arguments
     args = parse_cmd()
@@ -248,21 +289,13 @@ def main():
     logging.info('Supplied configuration:')
     logging.info(json.dumps(configs, sort_keys=True, indent=4))
 
-    # reading ENSEMBL cds
-    print('Reading ENSEMBL CDS database ...')
-    with gzip.open(configs['ensembl_cds'], 'rt') as cds_handle:
-        cds_dict = SeqIO.to_dict(
-            SeqIO.parse(cds_handle, format='fasta'),
-            key_function=get_ensembl_accession
-        )
+    # reading Ensembl consensus coding sequences
+    print('Reading Ensembl concensus coding sequences ...')
+    cds_dict = parse_sequence_file(configs['ensembl_cds'], seq_db='ensembl', seq_format='fasta')
 
     # UniProt protein sequences
     print('Reading UniProt protein sequence database ...')
-    with gzip.open(configs['uniprot_pep'], 'rt') as pep_handle:
-        pep_dict = SeqIO.to_dict(
-            SeqIO.parse(pep_handle, format='fasta'),
-            key_function=get_uniprot_accession
-        )
+    pep_dict = parse_sequence_file(configs['uniprot_pep'], seq_db='uniprot', seq_format='fasta')
 
     # parse gnomad transcript-level variants
     print('Reading gnomAD variant database ...')

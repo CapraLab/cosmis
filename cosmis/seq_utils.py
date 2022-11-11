@@ -634,3 +634,34 @@ def read_enst_mp_count(input_file):
                 mis_prob, mis_count, syn_count_exp, mis_count_exp
             )
     return enst_mp_counts
+
+
+def get_ensembl_accession(record):
+    """
+
+    Parameters
+    ----------
+    record : str
+        Record ID is of the format: ">CCDS2.2|Hs109|chr1"
+
+    Returns
+    -------
+
+    """
+    parts = record.id.split('.')
+    return parts[0]
+
+
+def get_uniprot_accession(record):
+    """
+
+    Parameters
+    ----------
+    record
+
+    Returns
+    -------
+
+    """
+    parts = record.id.split('|')
+    return parts[1]

@@ -8,7 +8,7 @@ from argparse import ArgumentParser
 from Bio import SeqIO
 from Bio import BiopythonWarning
 import warnings
-from cosmis.utils import seq_utils
+from cosmis import seq_utils
 
 warnings.simplefilter('ignore', BiopythonWarning)
 

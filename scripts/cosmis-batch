@@ -15,7 +15,8 @@ from Bio import BiopythonWarning
 from Bio.PDB import PDBParser, is_aa
 from Bio.SeqUtils import seq1
 
-from cosmis.utils import pdb_utils, seq_utils
+from cosmis import seq_utils, pdb_utils
+
 warnings.simplefilter('ignore', BiopythonWarning)
 
 

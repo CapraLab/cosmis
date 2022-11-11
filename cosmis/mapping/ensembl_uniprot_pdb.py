@@ -4,7 +4,7 @@ import os
 import pandas as pd
 import urllib
 from cosmis.mapping.sifts import SIFTS
-from cosmis.utils import pdb_utils
+from cosmis import pdb_utils
 from collections import defaultdict
 
 
